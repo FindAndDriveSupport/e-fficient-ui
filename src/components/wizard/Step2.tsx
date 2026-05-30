@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { QualificationBanner } from "./QualificationBanner";
 import { StepHeader } from "./StepHeader";
 import type { WizardData } from "./types";
+import { formatThousands, parseThousands } from "./validation";
 
 interface Props {
   data: WizardData;
