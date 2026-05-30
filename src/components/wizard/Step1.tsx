@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { QualificationBanner } from "./QualificationBanner";
 import { StepHeader } from "./StepHeader";
 import type { WizardData } from "./types";
+import { validateMobile, formatThousands, parseThousands } from "./validation";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 
 interface Props {
   data: WizardData;
@@ -14,12 +16,14 @@ interface Props {
 
 export function Step1({ data, setData, next }: Props) {
   const u = (patch: Partial<WizardData>) => setData({ ...data, ...patch });
+  const mobile = validateMobile(data.mobile);
+  const mobileDigits = data.mobile.replace(/\D/g, "");
   const valid =
     data.name.trim() &&
     data.surname.trim() &&
     Number(data.netIncome) > 0 &&
     Number(data.netIncome) <= 150000 &&
-    data.mobile.trim().length >= 10;
+    mobile.valid;
 
   return (
     <div className="space-y-6">
@@ -38,10 +42,13 @@ export function Step1({ data, setData, next }: Props) {
 
         <Field label="Net income (monthly, max R150 000)">
           <Input
-            type="number"
+            type="text"
             inputMode="numeric"
-            value={data.netIncome}
-            onChange={(e) => u({ netIncome: e.target.value === "" ? "" : Math.min(150000, Number(e.target.value)) })}
+            value={formatThousands(data.netIncome)}
+            onChange={(e) => {
+              const n = parseThousands(e.target.value);
+              u({ netIncome: n === "" ? "" : Math.min(150000, n) });
+            }}
             placeholder="R 0"
           />
         </Field>
@@ -49,10 +56,18 @@ export function Step1({ data, setData, next }: Props) {
         <Field label="Mobile number">
           <Input
             type="tel"
+            inputMode="numeric"
+            maxLength={12}
             value={data.mobile}
-            onChange={(e) => u({ mobile: e.target.value })}
+            onChange={(e) => u({ mobile: e.target.value.replace(/[^\d\s]/g, "") })}
             placeholder="082 123 4567"
           />
+          {mobileDigits.length > 0 && (
+            <p className={`mt-1 flex items-center gap-1 text-xs ${mobile.valid ? "text-emerald-600" : "text-destructive"}`}>
+              {mobile.valid ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+              {mobile.message}
+            </p>
+          )}
         </Field>
 
         <div className="space-y-3 rounded-xl bg-muted/40 p-3">
@@ -62,10 +77,11 @@ export function Step1({ data, setData, next }: Props) {
           </label>
           {data.hasDeposit && (
             <Input
-              type="number"
+              type="text"
+              inputMode="numeric"
               placeholder="Deposit amount (R)"
-              value={data.depositAmount}
-              onChange={(e) => u({ depositAmount: e.target.value === "" ? "" : Number(e.target.value) })}
+              value={formatThousands(data.depositAmount)}
+              onChange={(e) => u({ depositAmount: parseThousands(e.target.value) })}
             />
           )}
 
@@ -75,10 +91,11 @@ export function Step1({ data, setData, next }: Props) {
           </label>
           {data.hasFinance && (
             <Input
-              type="number"
+              type="text"
+              inputMode="numeric"
               placeholder="Current monthly finance instalment (R)"
-              value={data.financeAmount}
-              onChange={(e) => u({ financeAmount: e.target.value === "" ? "" : Number(e.target.value) })}
+              value={formatThousands(data.financeAmount)}
+              onChange={(e) => u({ financeAmount: parseThousands(e.target.value) })}
             />
           )}
         </div>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { QualificationBanner } from "./QualificationBanner";
 import { StepHeader } from "./StepHeader";
 import type { WizardData } from "./types";
+import { formatThousands, parseThousands } from "./validation";
 
 interface Props {
   data: WizardData;
@@ -45,9 +46,13 @@ export function Step2({ data, setData, next, back }: Props) {
       <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
         <Field label="Gross income (monthly, max R250 000)">
           <Input
-            type="number"
-            value={data.grossIncome}
-            onChange={(e) => u({ grossIncome: e.target.value === "" ? "" : Math.min(250000, Number(e.target.value)) })}
+            type="text"
+            inputMode="numeric"
+            value={formatThousands(data.grossIncome)}
+            onChange={(e) => {
+              const n = parseThousands(e.target.value);
+              u({ grossIncome: n === "" ? "" : Math.min(250000, n) });
+            }}
             placeholder="R 0"
           />
         </Field>
@@ -64,9 +69,10 @@ export function Step2({ data, setData, next, back }: Props) {
 
         <Field label="Total monthly living expenses">
           <Input
-            type="number"
-            value={data.livingExpenses}
-            onChange={(e) => u({ livingExpenses: e.target.value === "" ? "" : Number(e.target.value) })}
+            type="text"
+            inputMode="numeric"
+            value={formatThousands(data.livingExpenses)}
+            onChange={(e) => u({ livingExpenses: parseThousands(e.target.value) })}
             placeholder="R 0"
           />
         </Field>
