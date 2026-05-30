@@ -7,7 +7,11 @@ export function TypingInput({
   onChange,
   phrases,
   ...rest
-}: React.InputHTMLAttributes<HTMLInputElement> & { phrases?: string[]; value: string; onChange: (v: string) => void }) {
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & {
+  phrases?: string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const list = phrases && phrases.length ? phrases : PHRASES_DEFAULT;
   const [placeholder, setPlaceholder] = useState("");
   const [pIdx, setPIdx] = useState(0);
