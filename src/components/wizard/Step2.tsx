@@ -69,9 +69,10 @@ export function Step2({ data, setData, next, back }: Props) {
 
         <Field label="Total monthly living expenses">
           <Input
-            type="number"
-            value={data.livingExpenses}
-            onChange={(e) => u({ livingExpenses: e.target.value === "" ? "" : Number(e.target.value) })}
+            type="text"
+            inputMode="numeric"
+            value={formatThousands(data.livingExpenses)}
+            onChange={(e) => u({ livingExpenses: parseThousands(e.target.value) })}
             placeholder="R 0"
           />
         </Field>
