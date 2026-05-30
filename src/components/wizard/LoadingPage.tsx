@@ -1,0 +1,66 @@
+import { useEffect, useState } from "react";
+import experianLogo from "@/assets/experian.png";
+
+const STEPS = [
+  "Fetching your affordability information…",
+  "Fetching your credit profile…",
+  "Running soft credit check…",
+  "Finalising results…",
+];
+
+export function LoadingPage({ onDone }: { onDone: () => void }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((p) => p + 1), 900);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (i >= STEPS.length) {
+      const t = setTimeout(onDone, 600);
+      return () => clearTimeout(t);
+    }
+  }, [i, onDone]);
+
+  return (
+    <div className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center">
+      <div className="relative mb-8">
+        <div className="absolute inset-0 animate-ping rounded-full opacity-30" style={{ backgroundImage: "var(--gradient-primary)" }} />
+        <div
+          className="relative flex h-24 w-24 items-center justify-center rounded-full text-primary-foreground shadow-[var(--shadow-elegant)]"
+          style={{ backgroundImage: "var(--gradient-primary)" }}
+        >
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+        </div>
+      </div>
+      <h2 className="text-xl font-bold">Just a moment…</h2>
+      <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+        A soft credit check does not affect your credit score.
+      </p>
+
+      <div className="mt-6 w-full max-w-sm space-y-2">
+        {STEPS.map((s, idx) => (
+          <div
+            key={idx}
+            className={`flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left text-sm transition-all ${
+              idx < i ? "opacity-100" : idx === i ? "opacity-100" : "opacity-40"
+            }`}
+          >
+            <div
+              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                idx < i ? "bg-success text-white" : idx === i ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {idx < i ? "✓" : idx + 1}
+            </div>
+            <span>{s}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+        <span>Credit bureau partner</span>
+        <img src={experianLogo} alt="Experian" className="h-6" />
+      </div>
+    </div>
+  );
+}
