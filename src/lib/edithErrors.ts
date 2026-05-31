@@ -774,9 +774,25 @@ export const FIELD_ERRORS = {
  * @param {object} edithError - { FieldName, FieldStatusCode, Description, FieldCategory }
  * @returns {object} { field, title, message, action, severity, raw }
  */
-export function getErrorMessage(edithError) {
-  const { FieldName, FieldStatusCode, Description } = edithError
-  const known = FIELD_ERRORS[FieldName]
+export interface EdithFieldError {
+  FieldName: string;
+  FieldStatusCode: number;
+  Description?: string;
+  FieldCategory?: string;
+}
+
+export interface ParsedFieldError {
+  field: string | null;
+  title: string;
+  message: string;
+  action: string;
+  severity: "error" | "warning" | "success";
+  raw: { FieldName: string; FieldStatusCode: number; Description?: string };
+}
+
+export function getErrorMessage(edithError: EdithFieldError): ParsedFieldError {
+  const { FieldName, FieldStatusCode, Description } = edithError;
+  const known = (FIELD_ERRORS as Record<string, { title: string; message: string; action: string; severity: string; field: string | null }>)[FieldName];
 
   if (known) {
     return {
@@ -784,12 +800,11 @@ export function getErrorMessage(edithError) {
       title: known.title,
       message: known.message,
       action: known.action,
-      severity: known.severity,
+      severity: known.severity as ParsedFieldError["severity"],
       raw: { FieldName, FieldStatusCode, Description },
-    }
+    };
   }
 
-  // Fallback for unknown fields
   return {
     field: null,
     title: 'A field could not be saved',
@@ -797,7 +812,7 @@ export function getErrorMessage(edithError) {
     action: 'Please check all your details are correct and try again. If the problem continues, contact the dealership.',
     severity: FieldStatusCode === 300 ? 'error' : 'warning',
     raw: { FieldName, FieldStatusCode, Description },
-  }
+  };
 }
 
 /**
