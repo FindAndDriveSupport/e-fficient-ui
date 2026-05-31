@@ -815,30 +815,38 @@ export function getErrorMessage(edithError: EdithFieldError): ParsedFieldError {
   };
 }
 
-/**
- * Parse a full Edith response errors array into user-friendly messages.
- * 
- * @param {object} edithResponse - Full Edith response object
- * @returns {object} { isSuccess, isFatal, systemMessage, fieldErrors[] }
- */
-export function parseEdithErrors(edithResponse) {
-  const statusCode = edithResponse?.StatusCode || edithResponse?.Response?.StatusCode
-  const errors = edithResponse?.Errors || edithResponse?.Response?.Errors || []
+export interface ParsedEdithResponse {
+  isSuccess: boolean;
+  isFatal: boolean;
+  statusCode: number | undefined;
+  systemMessage: { title: string; message: string; action: string; severity: string } | null;
+  fieldErrors: ParsedFieldError[];
+  fatalErrors: ParsedFieldError[];
+  warnings: ParsedFieldError[];
+  byField: Record<string, ParsedFieldError>;
+}
 
-  const isSuccess = statusCode === 100 || statusCode === 200
-  const isFatal = statusCode === 300 || statusCode >= 400
+export function parseEdithErrors(edithResponse: {
+  StatusCode?: number;
+  Errors?: EdithFieldError[] | EdithFieldError;
+  Response?: { StatusCode?: number; Errors?: EdithFieldError[] | EdithFieldError };
+} | null | undefined): ParsedEdithResponse {
+  const statusCode = edithResponse?.StatusCode ?? edithResponse?.Response?.StatusCode;
+  const errors = edithResponse?.Errors ?? edithResponse?.Response?.Errors ?? [];
 
-  // System-level message
-  const systemMessage = SYSTEM_MESSAGES[statusCode] || null
+  const isSuccess = statusCode === 100 || statusCode === 200;
+  const isFatal = statusCode === 300 || (typeof statusCode === "number" && statusCode >= 400);
 
-  // Field-level messages
+  const systemMessage = statusCode != null
+    ? (SYSTEM_MESSAGES as Record<number, { title: string; message: string; action: string; severity: string }>)[statusCode] ?? null
+    : null;
+
   const fieldErrors = (Array.isArray(errors) ? errors : [errors])
     .filter(Boolean)
-    .map(getErrorMessage)
+    .map(getErrorMessage);
 
-  // Separate fatal errors from warnings
-  const fatalErrors = fieldErrors.filter(e => e.severity === 'error')
-  const warnings = fieldErrors.filter(e => e.severity === 'warning')
+  const fatalErrors = fieldErrors.filter((e) => e.severity === "error");
+  const warnings = fieldErrors.filter((e) => e.severity === "warning");
 
   return {
     isSuccess,
@@ -848,36 +856,24 @@ export function parseEdithErrors(edithResponse) {
     fieldErrors,
     fatalErrors,
     warnings,
-    // Map field errors back to form field names for inline display
-    byField: fieldErrors.reduce((acc, err) => {
-      if (err.field) acc[err.field] = err
-      return acc
+    byField: fieldErrors.reduce<Record<string, ParsedFieldError>>((acc, err) => {
+      if (err.field) acc[err.field] = err;
+      return acc;
     }, {}),
-  }
+  };
 }
 
-/**
- * Get a plain summary message suitable for a toast notification.
- * 
- * @param {object} parsed - Output of parseEdithErrors()
- * @returns {string}
- */
-export function getSummaryMessage(parsed) {
+export function getSummaryMessage(parsed: ParsedEdithResponse): string {
   if (parsed.isSuccess && parsed.warnings.length === 0) {
-    return 'Your application was submitted successfully.'
+    return "Your application was submitted successfully.";
   }
-
   if (parsed.isSuccess && parsed.warnings.length > 0) {
-    return `Your application was submitted, but ${parsed.warnings.length} field(s) could not be saved. Please review the highlighted items.`
+    return `Your application was submitted, but ${parsed.warnings.length} field(s) could not be saved. Please review the highlighted items.`;
   }
-
-  if (parsed.systemMessage) {
-    return parsed.systemMessage.message
-  }
-
+  if (parsed.systemMessage) return parsed.systemMessage.message;
   if (parsed.fatalErrors.length > 0) {
-    return `Your application could not be submitted. Please correct the highlighted fields and try again.`
+    return "Your application could not be submitted. Please correct the highlighted fields and try again.";
   }
-
-  return 'There was a problem submitting your application. Please try again.'
+  return "There was a problem submitting your application. Please try again.";
 }
+
