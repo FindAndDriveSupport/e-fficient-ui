@@ -1,0 +1,92 @@
+/**
+ * Worker API client. All calls go through VITE_WORKER_URL.
+ * When the env var is missing (e.g. Lovable preview without a backend),
+ * the client returns deterministic mock responses so the wizard keeps working.
+ */
+import type { WizardData } from "@/components/wizard/types";
+
+const WORKER = import.meta.env.VITE_WORKER_URL as string | undefined;
+
+function headers(dealerKey?: string) {
+  return {
+    "Content-Type": "application/json",
+    ...(dealerKey ? { "X-Dealer-Key": dealerKey } : {}),
+  };
+}
+
+export interface PreQualResponse {
+  applicantId: string;
+  monthlyAmount: number;
+  totalAmount: number;
+}
+
+export interface PredictionResponse {
+  prediction: { label: "In progress" | "Good news" | "Great news" };
+  reason: string;
+  estimatedApprovalAmount: number;
+  monthlyInstalment: number;
+}
+
+export interface PolicyResponse {
+  policyNumber?: string;
+  StatusCode?: number;
+  Errors?: Array<{ FieldName: string; FieldStatusCode: number; Description?: string }>;
+}
+
+async function call<T>(path: string, init: RequestInit, dealerKey?: string, mock?: () => T): Promise<T> {
+  if (!WORKER) {
+    await new Promise((r) => setTimeout(r, 600));
+    if (mock) return mock();
+    throw new Error("VITE_WORKER_URL not configured");
+  }
+  const res = await fetch(`${WORKER}${path}`, {
+    ...init,
+    headers: { ...headers(dealerKey), ...(init.headers || {}) },
+  });
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  return (await res.json()) as T;
+}
+
+export const workerApi = {
+  preQualify(data: Partial<WizardData>, dealerKey?: string) {
+    return call<PreQualResponse>(
+      "/api/financing/pre-qualification",
+      { method: "POST", body: JSON.stringify(data) },
+      dealerKey,
+      () => {
+        const net = Number(data.netIncome) || 0;
+        const monthly = Math.round(net * 0.3);
+        return { applicantId: `mock-${Date.now()}`, monthlyAmount: monthly, totalAmount: monthly * 50 };
+      },
+    );
+  },
+  predict(data: Partial<WizardData>, dealerKey?: string) {
+    return call<PredictionResponse>(
+      "/api/financing/prediction",
+      { method: "POST", body: JSON.stringify(data) },
+      dealerKey,
+      () => {
+        const net = Number(data.netIncome) || 0;
+        const exp = Number(data.livingExpenses) || 0;
+        const ratio = net > 0 ? exp / net : 1;
+        const label: PredictionResponse["prediction"]["label"] =
+          net >= 25000 && ratio < 0.4 ? "Great news" : net >= 12000 && ratio < 0.6 ? "Good news" : "In progress";
+        const monthly = Math.round(net * 0.3);
+        return {
+          prediction: { label },
+          reason: "Pay all your accounts on time, every month, to maintain a healthy credit score.",
+          estimatedApprovalAmount: monthly * 50,
+          monthlyInstalment: monthly,
+        };
+      },
+    );
+  },
+  createPolicy(data: Partial<WizardData>, dealerKey?: string) {
+    return call<PolicyResponse>(
+      "/api/policy/create",
+      { method: "POST", body: JSON.stringify(data) },
+      dealerKey,
+      () => ({ policyNumber: `POL${Date.now().toString().slice(-8)}`, StatusCode: 100, Errors: [] }),
+    );
+  },
+};

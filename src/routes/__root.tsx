@@ -113,13 +113,20 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { EmbedProvider } from "@/contexts/EmbedContext";
+import { DealerProvider } from "@/contexts/DealerContext";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <EmbedProvider>
+        <DealerProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </DealerProvider>
+      </EmbedProvider>
     </QueryClientProvider>
   );
 }

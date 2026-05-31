@@ -6,6 +6,7 @@ import { QualificationBanner } from "./QualificationBanner";
 import { StepHeader } from "./StepHeader";
 import type { WizardData } from "./types";
 import { formatThousands, parseThousands } from "./validation";
+import { usePageTimer, trackStep2Submit } from "@/lib/mixpanel";
 
 interface Props {
   data: WizardData;
@@ -22,7 +23,9 @@ const CONSENTS = [
 ];
 
 export function Step2({ data, setData, next, back }: Props) {
+  usePageTimer("Step 2 - Income & Identity");
   const u = (patch: Partial<WizardData>) => setData({ ...data, ...patch });
+  const onSubmit = () => { trackStep2Submit(); next(); };
 
   const valid =
     Number(data.grossIncome) > 0 &&
@@ -98,9 +101,9 @@ export function Step2({ data, setData, next, back }: Props) {
         className="w-full rounded-xl py-6 text-base font-semibold shadow-[var(--shadow-elegant)]"
         style={{ backgroundImage: "var(--gradient-primary)" }}
         disabled={!valid}
-        onClick={next}
+        onClick={onSubmit}
       >
-        Run my pre-qualification
+        Submit
       </Button>
     </div>
   );
