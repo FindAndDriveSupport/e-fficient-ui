@@ -7,6 +7,8 @@ import { StepHeader } from "./StepHeader";
 import type { WizardData } from "./types";
 import { validateMobile, formatThousands, parseThousands } from "./validation";
 import { CheckCircle2, AlertCircle } from "lucide-react";
+import { usePageTimer, trackHomePageLoad, trackStep1Continue } from "@/lib/mixpanel";
+import { useEffect } from "react";
 
 interface Props {
   data: WizardData;
@@ -15,7 +17,10 @@ interface Props {
 }
 
 export function Step1({ data, setData, next }: Props) {
+  usePageTimer("Step 1 - Personal Details");
+  useEffect(() => { trackHomePageLoad(); }, []);
   const u = (patch: Partial<WizardData>) => setData({ ...data, ...patch });
+  const onContinue = () => { trackStep1Continue(); next(); };
   const mobile = validateMobile(data.mobile);
   const mobileDigits = data.mobile.replace(/\D/g, "");
   const valid =
@@ -106,7 +111,7 @@ export function Step1({ data, setData, next }: Props) {
         className="w-full rounded-xl py-6 text-base font-semibold shadow-[var(--shadow-elegant)]"
         style={{ backgroundImage: "var(--gradient-primary)" }}
         disabled={!valid}
-        onClick={next}
+        onClick={onContinue}
       >
         Continue
       </Button>
