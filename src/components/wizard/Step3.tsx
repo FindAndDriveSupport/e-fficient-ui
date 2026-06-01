@@ -1,173 +1,154 @@
-import { useMemo, useState } from "react";
-import {
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
-} from "@/components/ui/accordion";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { StepHeader } from "./StepHeader";
-import { TypingInput } from "./TypingInput";
+import { CurrencyInput } from "./CurrencyInput";
+import { AddressLookup } from "./AddressLookup";
 import { EdithErrorBanner } from "./EdithErrorBanner";
 import { FieldErrorHint } from "./FieldErrorHint";
+import { validateSAID } from "./validation";
 import type { WizardData } from "./types";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatThousands, parseThousands } from "./validation";
-import {
-  TITLES, GENDERS, MARITAL_STATUSES, MARRIAGE_TYPES, RESIDENTIAL_STATUSES,
-  PROVINCES, EMPLOYMENT_TYPES, INDUSTRIES, OCCUPATION_LEVELS, EDUCATION_LEVELS,
-  RELATIONSHIPS, FINANCE_TERMS,
-} from "./dropdowns";
 import { useEmbed } from "@/contexts/EmbedContext";
 import { useDealer } from "@/contexts/DealerContext";
 import { workerApi } from "@/lib/worker";
 import { parseEdithErrors, type ParsedEdithResponse } from "@/lib/edithErrors";
 import { usePageTimer, trackStep3SubmitApplication } from "@/lib/mixpanel";
 
-const DEALERS = ["Sandton Auto", "CMH Cape Town", "Barons VW Pretoria", "Audi Centre Umhlanga", "BMW Bryanston"];
-const VEHICLES = ["VW Polo 1.0 TSI", "Toyota Corolla Cross", "Hyundai i20", "Ford Ranger 2.0 BiT", "BMW 320i M Sport"];
-
-// Map Edith FieldName → our local WizardData key, used to display inline errors.
-const EDITH_FIELD_TO_LOCAL: Record<string, keyof WizardData> = {
-  lastName: "surname",
-  firstName: "name",
-  idNumber: "idNumber",
-  title: "title",
-  gender: "gender",
-  birthDate: "birthDate",
-  emailAddress: "email",
-  mobileNumber: "mobile",
-  maritalStatus: "maritalStatus",
-  marriageType: "marriageType",
-  residentialStatus: "residentialStatus",
-  "physicalAddress.suburb": "suburb",
-  "physicalAddress.city": "city",
-  "physicalAddress.postCode": "postalCode",
-  "physicalAddress.province": "province",
-  employmentType: "employmentType",
-  employerName: "employerName",
-  industry: "industry",
-  occupation: "occupation",
-  occupationLevel: "occupationLevel",
-  currentEmploymentStartDate: "employmentDate",
-  workTelephoneCode: "empTelCode",
-  workTelephoneNumber: "empTelNumber",
-  salaryDay: "salaryDay",
-  basicSalary: "confirmGross",
-  nettSalary: "confirmNet",
-  financeTerm: "financeTerm",
-  paymentDay: "paymentDay",
-  depositValue: "depositAmount",
-};
-
-interface Section {
-  id: string;
-  title: string;
-  fields: (keyof WizardData)[];
-}
-
-const SECTIONS: Section[] = [
-  { id: "vehicle", title: "Dealership & vehicle", fields: ["dealership", "vehicle"] },
-  { id: "personal", title: "Personal details", fields: ["title", "name", "surname", "gender", "birthDate", "email", "educationLevel", "maritalStatus"] },
-  { id: "address", title: "Residential address", fields: ["street", "suburb", "city", "province", "postalCode", "residentialStatus", "yearsAtAddress"] },
-  { id: "nok", title: "Next of kin", fields: ["nokFirst", "nokLast", "nokRelationship", "nokContact"] },
-  { id: "employment", title: "Employment", fields: ["employmentType", "employerName", "industry", "occupation", "occupationLevel", "employmentDate", "empStreet", "empSuburb", "empCity", "empProvince", "empPostal", "empTelCode", "empTelNumber", "salaryDay"] },
-  { id: "financial", title: "Confirm income & finance", fields: ["confirmGross", "confirmNet", "financeTerm", "paymentDay"] },
-  { id: "marketing", title: "Marketing preferences", fields: ["marketingTelesales", "marketingEmail", "marketingSMS", "idxConsent", "ivxConsent"] },
+const TITLES = ["Mr", "Mrs", "Miss", "Ms", "Dr", "Prof", "Adv", "Hon", "Rev"];
+const ID_TYPES = ["RSA ID", "Passport", "Other ID"] as const;
+const MARITAL = ["Single", "Married", "Widowed", "Divorced"];
+const MARRIAGE_TYPES = [
+  "ANC with Accrual",
+  "In Community of Property",
+  "ANC without Accrual",
+  "Foreign Law",
+  "Tribal Law",
+  "Muslim and Hindu Rites",
 ];
+const RESIDENTIAL = ["Owner (no bond)", "Owner (bonded)", "Tenant", "Other"];
+const EMPLOYMENT = ["Employed", "Self-employed", "Contract", "Pensioner/Retired"] as const;
 
-const LABELS: Partial<Record<keyof WizardData, string>> = {
-  dealership: "Dealership name", vehicle: "Selected vehicle",
-  title: "Title", name: "First name", surname: "Surname", gender: "Gender", birthDate: "Date of birth (DD/MM/YYYY)",
-  email: "Email", educationLevel: "Education level", maritalStatus: "Marital status",
-  street: "Street address", suburb: "Suburb", city: "City", province: "Province", postalCode: "Postal code",
-  residentialStatus: "Residential status", yearsAtAddress: "Years at address",
-  nokFirst: "Next of kin first name", nokLast: "Next of kin surname",
-  nokRelationship: "Relationship", nokContact: "Next of kin mobile",
-  employmentType: "Employment type", employerName: "Employer name",
-  industry: "Industry", occupation: "Occupation", occupationLevel: "Occupation level",
-  employmentDate: "Employment start date (DD/MM/YYYY)",
-  empStreet: "Employer street", empSuburb: "Employer suburb", empCity: "Employer city",
-  empProvince: "Employer province", empPostal: "Employer postal code",
-  empTelCode: "Work tel area code", empTelNumber: "Work tel number",
-  salaryDay: "Salary day (1-31)",
-  confirmGross: "Confirm gross salary (R)", confirmNet: "Confirm net salary (R)",
-  financeTerm: "Finance term (months)", paymentDay: "Payment day (1-28)",
-  marketingTelesales: "Telesales marketing", marketingEmail: "Email marketing",
-  marketingSMS: "SMS marketing", idxConsent: "Bank statement access (IDX)", ivxConsent: "Payslip access (IVX)",
+// Map Edith FieldName → local key for inline errors
+const EDITH_MAP: Record<string, string> = {
+  LastName: "surname",
+  FirstName: "name",
+  IDNumber: "idNumber",
+  Title: "title",
+  EmailAddress: "email",
+  MobileNumber: "mobile",
+  MaritalStatus: "maritalStatus",
+  EmploymentType: "employmentType",
+  EmployerName: "employerName",
+  SalaryDay: "salaryDay",
+  BasicSalary: "confirmGross",
+  NettSalary: "confirmNet",
+  EFTDepositValue: "confirmDeposit",
 };
-
-const DROPDOWNS: Partial<Record<keyof WizardData, readonly string[] | readonly number[]>> = {
-  title: TITLES,
-  gender: GENDERS,
-  maritalStatus: MARITAL_STATUSES,
-  marriageType: MARRIAGE_TYPES,
-  residentialStatus: RESIDENTIAL_STATUSES,
-  province: PROVINCES,
-  empProvince: PROVINCES,
-  employmentType: EMPLOYMENT_TYPES,
-  industry: INDUSTRIES,
-  occupationLevel: OCCUPATION_LEVELS,
-  educationLevel: EDUCATION_LEVELS,
-  nokRelationship: RELATIONSHIPS,
-  financeTerm: FINANCE_TERMS,
-};
-
-const CURRENCY_FIELDS: (keyof WizardData)[] = ["confirmGross", "confirmNet"];
-const CHECKBOX_FIELDS: (keyof WizardData)[] = ["marketingTelesales", "marketingEmail", "marketingSMS", "idxConsent", "ivxConsent"];
 
 export function Step3({ data, setData, back }: { data: WizardData; setData: (d: WizardData) => void; back: () => void }) {
   usePageTimer("Step 3 - Full Application");
   const embed = useEmbed();
   const dealer = useDealer();
 
-  // Pre-fill vehicle/dealership from embed params on first render
-  useMemo(() => {
-    const patch: Partial<WizardData> = {};
-    if (!data.vehicle && (embed.make || embed.model)) {
-      patch.vehicle = [embed.make, embed.model].filter(Boolean).join(" ");
-    }
-    if (!data.vehicleCode && embed.mm) patch.vehicleCode = embed.mm;
-    if (!data.dealership && dealer.name && dealer.key !== "default") patch.dealership = dealer.name;
-    if (Object.keys(patch).length) setData({ ...data, ...patch });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const requiredFields = useMemo(
-    () => SECTIONS.flatMap((s) => s.fields).filter((f) => !CHECKBOX_FIELDS.includes(f)),
-    [],
-  );
-  const filled = requiredFields.filter((f) => String(data[f] ?? "").trim().length > 0).length;
-  const pct = Math.round((filled / requiredFields.length) * 100);
-
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{ policyNumber?: string } | null>(null);
   const [errors, setErrors] = useState<ParsedEdithResponse | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [idError, setIdError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => setData({ ...data, [k]: v });
 
-  // Build field-error lookup keyed by our local field names
-  const byLocalField = useMemo(() => {
+  // Pre-fill once
+  useState(() => {
+    const patch: Partial<WizardData> = {};
+    if (!data.vehicleMake && embed.make) patch.vehicleMake = embed.make;
+    if (!data.vehicleModel && embed.model) patch.vehicleModel = embed.model;
+    if (!data.vehicleMm && embed.mm) patch.vehicleMm = embed.mm;
+    if (!data.dealership && dealer.name && dealer.key !== "default") patch.dealership = dealer.name;
+    if (!data.confirmGross && data.grossIncome) patch.confirmGross = data.grossIncome;
+    if (!data.confirmNet && data.netIncome) patch.confirmNet = data.netIncome;
+    if (data.hasDeposit && !data.confirmDeposit && data.depositAmount) patch.confirmDeposit = data.depositAmount;
+    if (Object.keys(patch).length) setData({ ...data, ...patch });
+    return null;
+  });
+
+  const errorByField = (() => {
     if (!errors) return {} as Record<string, { title: string; message: string; action: string }>;
     const map: Record<string, { title: string; message: string; action: string }> = {};
     for (const e of errors.fieldErrors) {
       if (!e.field) continue;
-      const local = EDITH_FIELD_TO_LOCAL[e.field];
-      if (local) map[local as string] = { title: e.title, message: e.message, action: e.action };
+      const local = EDITH_MAP[e.field] ?? e.field;
+      map[local] = { title: e.title, message: e.message, action: e.action };
     }
     return map;
-  }, [errors]);
+  })();
 
   const onSubmit = async () => {
+    // Hard validations
+    if (!data.surname.trim()) {
+      toast.error("Last name is required.");
+      return;
+    }
+    if (data.idType === "RSA ID" && data.idNumber) {
+      const err = validateSAID(data.idNumber);
+      setIdError(err);
+      if (err) return;
+    }
+    if (!data.postalLocation) {
+      setAddressError("Please select a suburb from the list.");
+      toast.error("Address is required.");
+      return;
+    }
+    setAddressError(null);
+
     trackStep3SubmitApplication();
     setSubmitting(true);
     setErrors(null);
     try {
-      const res = await workerApi.createPolicy(data, dealer.key !== "default" ? dealer.key : undefined);
+      const payload = {
+        title: data.title?.toUpperCase(),
+        firstName: data.name,
+        lastName: data.surname,
+        idType: data.idType.toUpperCase(),
+        idNumber: data.idNumber,
+        mobileNumber: data.mobile.replace(/\D/g, ""),
+        emailAddress: data.email,
+        maritalStatus: data.maritalStatus?.toUpperCase(),
+        marriageType: data.maritalStatus === "Married" ? data.marriageType : undefined,
+        address1: data.address1,
+        postalLocationId: data.postalLocation?.id,
+        residentialStatus: mapResidential(data.residentialStatus),
+        physicalAddressDate: data.physicalAddressDate ? formatEdithDate(data.physicalAddressDate) : undefined,
+        nextOfKinFirstName: data.nokFirst,
+        nextOfKinLastName: data.nokLast,
+        nextOfKinMobile: data.nokContact.replace(/\D/g, ""),
+        employmentType: mapEmployment(data.employmentType),
+        employerName: data.employmentType === "Pensioner/Retired" ? undefined : data.employerName,
+        salaryDay: data.employmentType === "Pensioner/Retired" ? undefined : Number(data.salaryDay) || undefined,
+        basicSalary: Number(data.confirmGross) || undefined,
+        nettSalary: Number(data.confirmNet) || undefined,
+        depositAmount: Number(data.confirmDeposit) > 0 ? Number(data.confirmDeposit) : undefined,
+        dataAttestation: data.dataAttestation,
+        financialAccessConsent: data.financialAccessConsent,
+        marketingConsent: data.marketingConsent,
+        vehicleMake: data.vehicleMake,
+        vehicleModel: data.vehicleModel,
+        vehicleMm: data.vehicleMm,
+        estimatedApprovalAmount: data.estimatedApprovalAmount,
+        applicantId: data.applicantId,
+      };
+
+      const res = await workerApi.createPolicy(payload as Partial<WizardData>, dealer.key !== "default" ? dealer.key : embed.dealer);
       const parsed = parseEdithErrors(res);
       if (parsed.isSuccess) {
         setSubmitted({ policyNumber: res.policyNumber });
@@ -178,7 +159,7 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
       }
     } catch (err) {
       console.error(err);
-      toast.error("Unable to connect. Please check your connection and try again.");
+      toast.error("Unable to connect. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -192,7 +173,7 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         </div>
         <h2 className="text-2xl font-bold">Application submitted</h2>
         {submitted.policyNumber && (
-          <p className="mt-2 text-sm font-medium text-foreground">
+          <p className="mt-2 text-sm font-medium">
             Reference: <span className="font-mono">{submitted.policyNumber}</span>
           </p>
         )}
@@ -203,9 +184,12 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
     );
   }
 
+  const isMarried = data.maritalStatus === "Married";
+  const isRetired = data.employmentType === "Pensioner/Retired";
+
   return (
     <div className="space-y-6">
-      <StepHeader step={3} total={3} title="Full application" subtitle="Complete the sections below to submit your application." onBack={back} />
+      <StepHeader step={3} total={3} title="Full application" subtitle="Complete the sections below to submit." onBack={back} />
 
       {errors?.systemMessage && (
         <EdithErrorBanner
@@ -215,107 +199,266 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         />
       )}
 
-      <div className="sticky top-2 z-10 rounded-2xl border border-border bg-card/90 p-4 shadow-[var(--shadow-soft)] backdrop-blur">
-        <div className="mb-2 flex items-center justify-between text-xs font-medium">
-          <span className="text-muted-foreground">Application progress</span>
-          <span className="text-primary">{pct}%</span>
-        </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundImage: "var(--gradient-primary)" }} />
-        </div>
-      </div>
+      <Accordion type="multiple" defaultValue={["personal", "address"]} className="space-y-3">
+        {/* Personal */}
+        <Section id="personal" title="Personal details">
+          <FieldRow label="Title">
+            <SelectInput value={data.title} onChange={(v) => set("title", v)} options={TITLES} />
+          </FieldRow>
+          <Grid2>
+            <FieldRow label="First name">
+              <Input value={data.name} onChange={(e) => set("name", e.target.value)} />
+              {errorByField.name && <FieldErrorHint {...errorByField.name} />}
+            </FieldRow>
+            <FieldRow label={<><span>Last name</span> <span className="text-destructive">*</span></>}>
+              <Input value={data.surname} onChange={(e) => set("surname", e.target.value)} aria-invalid={!data.surname} />
+              {errorByField.surname && <FieldErrorHint {...errorByField.surname} />}
+            </FieldRow>
+          </Grid2>
+          <Grid2>
+            <FieldRow label="ID / Passport type">
+              <SelectInput value={data.idType} onChange={(v) => set("idType", v as WizardData["idType"])} options={ID_TYPES as unknown as string[]} />
+            </FieldRow>
+            <FieldRow label="ID / Passport number">
+              <Input
+                value={data.idNumber}
+                maxLength={data.idType === "RSA ID" ? 13 : 30}
+                inputMode={data.idType === "RSA ID" ? "numeric" : "text"}
+                onChange={(e) => {
+                  const v = data.idType === "RSA ID" ? e.target.value.replace(/\D/g, "") : e.target.value;
+                  set("idNumber", v);
+                  if (data.idType === "RSA ID") setIdError(validateSAID(v));
+                }}
+                onBlur={() => data.idType === "RSA ID" && setIdError(validateSAID(data.idNumber))}
+              />
+              {idError && data.idType === "RSA ID" && (
+                <p className="mt-1 text-xs text-destructive">⚠ {idError}</p>
+              )}
+              {errorByField.idNumber && <FieldErrorHint {...errorByField.idNumber} />}
+            </FieldRow>
+          </Grid2>
+          <Grid2>
+            <FieldRow label="Mobile number">
+              <Input
+                value={data.mobile}
+                inputMode="numeric"
+                maxLength={10}
+                onChange={(e) => set("mobile", e.target.value.replace(/\D/g, ""))}
+              />
+            </FieldRow>
+            <FieldRow label="Email address">
+              <Input type="email" value={data.email} onChange={(e) => set("email", e.target.value)} />
+            </FieldRow>
+          </Grid2>
+          <FieldRow label="Marital status">
+            <SelectInput value={data.maritalStatus} onChange={(v) => set("maritalStatus", v)} options={MARITAL} />
+          </FieldRow>
+          {isMarried && (
+            <FieldRow label="Marriage contract">
+              <SelectInput value={data.marriageType} onChange={(v) => set("marriageType", v)} options={MARRIAGE_TYPES} />
+            </FieldRow>
+          )}
+        </Section>
 
-      <Accordion type="multiple" defaultValue={["vehicle", "personal"]} className="space-y-3">
-        {SECTIONS.map((s) => {
-          const done = s.fields.filter((f) => {
-            const v = data[f];
-            if (typeof v === "boolean") return v;
-            return String(v ?? "").trim().length > 0;
-          }).length;
-          const total = s.fields.length;
-          const complete = done === total;
-          return (
-            <AccordionItem key={s.id} value={s.id} className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)]">
-              <AccordionTrigger className="px-5 py-4 hover:no-underline">
-                <div className="flex flex-1 items-center justify-between gap-3 pr-3">
-                  <span className="text-left text-sm font-semibold">{s.title}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${complete ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-                    {done}/{total}
-                  </span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="space-y-3 px-5 pb-5">
-                {s.fields.map((f) => {
-                  const label = LABELS[f] ?? String(f);
-                  const dropdown = DROPDOWNS[f];
-                  const value = data[f];
-                  const err = byLocalField[f as string];
+        {/* Address */}
+        <Section id="address" title="Residential address">
+          <FieldRow label="Street address">
+            <Input maxLength={50} value={data.address1} onChange={(e) => set("address1", e.target.value)} />
+          </FieldRow>
+          <AddressLookup
+            value={data.postalLocation}
+            onSelect={(loc) => { set("postalLocation", loc); setAddressError(null); }}
+            error={addressError}
+          />
+          <Grid2>
+            <FieldRow label="Residential status">
+              <SelectInput value={data.residentialStatus} onChange={(v) => set("residentialStatus", v)} options={RESIDENTIAL} />
+            </FieldRow>
+            <FieldRow label="Date moved in">
+              <Input type="date" value={data.physicalAddressDate} onChange={(e) => set("physicalAddressDate", e.target.value)} />
+            </FieldRow>
+          </Grid2>
+        </Section>
 
-                  if (CHECKBOX_FIELDS.includes(f)) {
-                    return (
-                      <label key={f} className="flex items-center gap-3 rounded-lg p-2 -mx-2 hover:bg-muted/40">
-                        <Checkbox
-                          checked={Boolean(value)}
-                          onCheckedChange={(v) => set(f, Boolean(v) as WizardData[typeof f])}
-                        />
-                        <span className="text-sm">{label}</span>
-                      </label>
-                    );
-                  }
+        {/* NOK */}
+        <Section id="nok" title="Next of kin">
+          <Grid2>
+            <FieldRow label="First name">
+              <Input value={data.nokFirst} onChange={(e) => set("nokFirst", e.target.value)} />
+            </FieldRow>
+            <FieldRow label="Last name">
+              <Input value={data.nokLast} onChange={(e) => set("nokLast", e.target.value)} />
+            </FieldRow>
+          </Grid2>
+          <FieldRow label="Contact number">
+            <Input
+              value={data.nokContact}
+              inputMode="numeric"
+              maxLength={10}
+              onChange={(e) => set("nokContact", e.target.value.replace(/\D/g, ""))}
+            />
+          </FieldRow>
+        </Section>
 
-                  return (
-                    <div key={f} className="space-y-1.5">
-                      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
-                      {f === "dealership" ? (
-                        <TypingInput phrases={DEALERS} value={String(value ?? "")} onChange={(v) => set(f, v as WizardData[typeof f])} />
-                      ) : f === "vehicle" ? (
-                        <TypingInput phrases={VEHICLES} value={String(value ?? "")} onChange={(v) => set(f, v as WizardData[typeof f])} />
-                      ) : dropdown ? (
-                        <Select
-                          value={String(value ?? "")}
-                          onValueChange={(v) => set(f, v as WizardData[typeof f])}
-                        >
-                          <SelectTrigger><SelectValue placeholder={`Select ${label.toLowerCase()}`} /></SelectTrigger>
-                          <SelectContent>
-                            {dropdown.map((opt) => (
-                              <SelectItem key={String(opt)} value={String(opt)}>{String(opt)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : CURRENCY_FIELDS.includes(f) ? (
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          value={formatThousands(value as number | string)}
-                          onChange={(e) => set(f, parseThousands(e.target.value) as WizardData[typeof f])}
-                          placeholder="R 0"
-                        />
-                      ) : (
-                        <Input
-                          value={String(value ?? "")}
-                          onChange={(e) => set(f, e.target.value as WizardData[typeof f])}
-                          placeholder={label}
-                        />
-                      )}
-                      {err && <FieldErrorHint title={err.title} message={err.message} action={err.action} />}
-                    </div>
-                  );
-                })}
-              </AccordionContent>
-            </AccordionItem>
-          );
-        })}
+        {/* Employment */}
+        <Section id="employment" title="Employment">
+          <FieldRow label="Employment status">
+            <SelectInput
+              value={data.employmentType}
+              onChange={(v) => set("employmentType", v as WizardData["employmentType"])}
+              options={EMPLOYMENT as unknown as string[]}
+            />
+          </FieldRow>
+          {!isRetired && (
+            <Grid2>
+              <FieldRow label="Employer name">
+                <Input maxLength={50} value={data.employerName} onChange={(e) => set("employerName", e.target.value)} />
+                {errorByField.employerName && <FieldErrorHint {...errorByField.employerName} />}
+              </FieldRow>
+              <FieldRow label="Salary day (1–31)">
+                <Input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={data.salaryDay}
+                  onChange={(e) => set("salaryDay", e.target.value)}
+                />
+              </FieldRow>
+            </Grid2>
+          )}
+        </Section>
+
+        {/* Financial */}
+        <Section id="financial" title="Financial details">
+          <CurrencyInput
+            label="Gross monthly salary"
+            value={data.confirmGross}
+            onChange={(v) => set("confirmGross", v)}
+          />
+          {errorByField.confirmGross && <FieldErrorHint {...errorByField.confirmGross} />}
+          <CurrencyInput
+            label="Net Salary / Take-home Salary"
+            value={data.confirmNet}
+            onChange={(v) => set("confirmNet", v)}
+          />
+          {errorByField.confirmNet && <FieldErrorHint {...errorByField.confirmNet} />}
+          {data.hasDeposit && (
+            <CurrencyInput
+              label="Deposit amount"
+              value={data.confirmDeposit}
+              onChange={(v) => set("confirmDeposit", v)}
+            />
+          )}
+        </Section>
+
+        {/* Consents */}
+        <Section id="consents" title="Consents">
+          <CheckboxRow
+            checked={data.dataAttestation}
+            onChange={(v) => set("dataAttestation", v)}
+            label="I consent to Standard Bank collecting and processing my personal information."
+          />
+          <CheckboxRow
+            checked={data.financialAccessConsent}
+            onChange={(v) => set("financialAccessConsent", v)}
+            label="I consent to banks accessing my bank statements and payslip."
+          />
+          <CheckboxRow
+            checked={data.marketingConsent}
+            onChange={(v) => set("marketingConsent", v)}
+            label="I agree to receive marketing communications (calls, email, SMS)."
+          />
+        </Section>
       </Accordion>
 
       <Button
         size="lg"
         className="w-full rounded-xl py-6 text-base font-semibold shadow-[var(--shadow-elegant)]"
         style={{ backgroundImage: "var(--gradient-primary)" }}
-        disabled={pct < 100 || submitting || !data.surname.trim()}
+        disabled={submitting || !data.surname.trim()}
         onClick={onSubmit}
       >
-        {submitting ? "Submitting…" : pct < 100 ? `Complete all fields (${pct}%)` : "Submit application"}
+        {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</> : "Submit Application"}
       </Button>
     </div>
   );
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  return (
+    <AccordionItem value={id} className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)]">
+      <AccordionTrigger className="px-5 py-4 hover:no-underline">
+        <span className="text-left text-sm font-semibold">{title}</span>
+      </AccordionTrigger>
+      <AccordionContent className="space-y-3 px-5 pb-5">{children}</AccordionContent>
+    </AccordionItem>
+  );
+}
+
+function FieldRow({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function Grid2({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>;
+}
+
+function SelectInput({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+      <SelectContent>
+        {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function CheckboxRow({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <label className="flex items-start gap-3 rounded-lg p-2 -mx-2 hover:bg-muted/40">
+      <Checkbox className="mt-0.5" checked={checked} onCheckedChange={(v) => onChange(!!v)} />
+      <span className="text-xs leading-snug">{label}</span>
+    </label>
+  );
+}
+
+function mapResidential(v: string): string | undefined {
+  switch (v) {
+    case "Owner (no bond)": return "OWNER BOND FREE";
+    case "Owner (bonded)": return "OWNER BONDED";
+    case "Tenant": return "TENANT";
+    case "Other": return "BOARDER";
+    default: return undefined;
+  }
+}
+
+function mapEmployment(v: WizardData["employmentType"]): string | undefined {
+  switch (v) {
+    case "Employed":
+    case "Contract":
+      return "EMPLOYED";
+    case "Self-employed":
+      return "SELF-EMPLOYED";
+    case "Pensioner/Retired":
+      return "RETIRED";
+    default:
+      return undefined;
+  }
+}
+
+function formatEdithDate(iso: string): string {
+  // yyyy-mm-dd → dd-MMM-yyyy
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${dd}-${months[d.getMonth()]}-${d.getFullYear()}`;
 }
