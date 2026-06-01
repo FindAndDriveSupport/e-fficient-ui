@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { QualificationBanner } from "./QualificationBanner";
 import { StepHeader } from "./StepHeader";
+import { CurrencyInput } from "./CurrencyInput";
 import type { WizardData } from "./types";
-import { formatThousands, parseThousands } from "./validation";
+import { validateSAID } from "./validation";
 import { usePageTimer, trackStep2Submit } from "@/lib/mixpanel";
 
 interface Props {
@@ -25,7 +27,19 @@ const CONSENTS = [
 export function Step2({ data, setData, next, back }: Props) {
   usePageTimer("Step 2 - Income & Identity");
   const u = (patch: Partial<WizardData>) => setData({ ...data, ...patch });
-  const onSubmit = () => { trackStep2Submit(); next(); };
+  const [idError, setIdError] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
+
+  const onSubmit = () => {
+    setTouched(true);
+    if (data.hasSAID) {
+      const err = validateSAID(data.idNumber);
+      setIdError(err);
+      if (err) return;
+    }
+    trackStep2Submit();
+    next();
+  };
 
   const valid =
     Number(data.grossIncome) > 0 &&
@@ -44,41 +58,57 @@ export function Step2({ data, setData, next, back }: Props) {
   return (
     <div className="space-y-6">
       <StepHeader step={2} total={3} title="Income & identity" subtitle="A bit more to refine your estimate." onBack={back} />
-      <QualificationBanner netIncome={Number(data.netIncome) || 0} />
+      <QualificationBanner
+        monthlyAmount={data.preQualMonthly ?? 0}
+        totalAmount={data.preQualTotal ?? 0}
+        showToggle={(data.preQualMonthly ?? 0) > 0}
+      />
 
       <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
-        <Field label="Gross income (monthly, max R250 000)">
-          <Input
-            type="text"
-            inputMode="numeric"
-            value={formatThousands(data.grossIncome)}
-            onChange={(e) => {
-              const n = parseThousands(e.target.value);
-              u({ grossIncome: n === "" ? "" : Math.min(250000, n) });
-            }}
-            placeholder="R 0"
-          />
-        </Field>
+        <CurrencyInput
+          label="Gross income (monthly, max R250 000)"
+          value={data.grossIncome}
+          max={250000}
+          onChange={(v) => u({ grossIncome: v })}
+        />
 
         <div className="space-y-2">
           <label className="flex items-center gap-3">
-            <Checkbox checked={!data.hasSAID} onCheckedChange={(v) => u({ hasSAID: !v })} />
+            <Checkbox checked={!data.hasSAID} onCheckedChange={(v) => { u({ hasSAID: !v }); setIdError(null); }} />
             <span className="text-sm font-medium">I do not have a South African ID</span>
           </label>
-          <Field label={data.hasSAID ? "South African ID number" : "Passport / other ID number"}>
-            <Input value={data.idNumber} onChange={(e) => u({ idNumber: e.target.value })} placeholder={data.hasSAID ? "13 digit ID" : "Document number"} />
-          </Field>
+          {data.hasSAID ? (
+            <Field label="South African ID number">
+              <Input
+                value={data.idNumber}
+                maxLength={13}
+                inputMode="numeric"
+                onChange={(e) => {
+                  u({ idNumber: e.target.value.replace(/\D/g, "") });
+                  if (touched) setIdError(validateSAID(e.target.value.replace(/\D/g, "")));
+                }}
+                onBlur={() => { setTouched(true); setIdError(validateSAID(data.idNumber)); }}
+                placeholder="13-digit ID"
+                aria-invalid={!!idError}
+              />
+              {idError && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
+                  <span>⚠</span> {idError}
+                </p>
+              )}
+            </Field>
+          ) : (
+            <Field label="Passport / other ID number">
+              <Input value={data.idNumber} onChange={(e) => u({ idNumber: e.target.value })} placeholder="Document number" />
+            </Field>
+          )}
         </div>
 
-        <Field label="Total monthly living expenses">
-          <Input
-            type="text"
-            inputMode="numeric"
-            value={formatThousands(data.livingExpenses)}
-            onChange={(e) => u({ livingExpenses: parseThousands(e.target.value) })}
-            placeholder="R 0"
-          />
-        </Field>
+        <CurrencyInput
+          label="Total monthly living expenses"
+          value={data.livingExpenses}
+          onChange={(v) => u({ livingExpenses: v })}
+        />
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">

@@ -45,3 +45,36 @@ export function parseThousands(value: string): number | "" {
   const digits = value.replace(/\D/g, "");
   return digits === "" ? "" : Number(digits);
 }
+
+/**
+ * South African ID number validation. Returns null when valid, else a
+ * user-facing error message. Validation order matches Phase 4 spec.
+ */
+export function validateSAID(id: string): string | null {
+  if (!id || id.length !== 13) return "ID number must be exactly 13 digits.";
+  if (!/^\d{13}$/.test(id)) return "ID number must contain digits only.";
+  if (/^(\d)\1+$/.test(id)) return "Please enter a valid ID number.";
+
+  const yy = parseInt(id.substring(0, 2), 10);
+  const mm = parseInt(id.substring(2, 4), 10);
+  const dd = parseInt(id.substring(4, 6), 10);
+  const fullYear = yy <= new Date().getFullYear() % 100 ? 2000 + yy : 1900 + yy;
+  const date = new Date(fullYear, mm - 1, dd);
+  const dateValid =
+    date.getFullYear() === fullYear &&
+    date.getMonth() === mm - 1 &&
+    date.getDate() === dd;
+  if (!dateValid) return "ID number contains an invalid date of birth.";
+
+  let sumOdd = 0;
+  for (let i = 0; i < 12; i += 2) sumOdd += parseInt(id[i], 10);
+  let evenDigits = "";
+  for (let i = 1; i < 12; i += 2) evenDigits += id[i];
+  const doubled = (parseInt(evenDigits, 10) * 2).toString();
+  const sumEven = doubled.split("").reduce((a, b) => a + parseInt(b, 10), 0);
+  const checkDigit = (10 - ((sumOdd + sumEven) % 10)) % 10;
+  if (checkDigit !== parseInt(id[12], 10)) {
+    return "ID number is not valid. Please check it matches your ID document exactly.";
+  }
+  return null;
+}
