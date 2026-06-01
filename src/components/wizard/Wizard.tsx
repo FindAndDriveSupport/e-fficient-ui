@@ -7,22 +7,38 @@ import { Step3 } from "./Step3";
 import { HelpButton } from "./HelpButton";
 import { initialData, type WizardData } from "./types";
 import { Toaster } from "@/components/ui/sonner";
+import { workerApi } from "@/lib/worker";
+import { useEmbed } from "@/contexts/EmbedContext";
 
 type Phase = "step1" | "step2" | "loading" | "response" | "step3";
 
-function pickTier(data: WizardData): ResponseTier {
-  const net = Number(data.netIncome) || 0;
-  const exp = Number(data.livingExpenses) || 0;
-  const ratio = net > 0 ? exp / net : 1;
-  if (net >= 25000 && ratio < 0.4) return "great";
-  if (net >= 12000 && ratio < 0.6) return "good";
+function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
+  if (label === "Great news") return "great";
+  if (label === "Good news") return "good";
   return "in_progress";
 }
 
 export function Wizard() {
   const [phase, setPhase] = useState<Phase>("step1");
   const [data, setData] = useState<WizardData>(initialData);
-  const [tier, setTier] = useState<ResponseTier>("good");
+  const embed = useEmbed();
+
+  const runPrediction = async () => {
+    try {
+      const res = await workerApi.predict(data, embed.dealer);
+      setData((d) => ({
+        ...d,
+        predictionLabel: res.prediction.label,
+        predictionReason: res.reason,
+        estimatedApprovalAmount: res.estimatedApprovalAmount,
+        monthlyInstalment: res.monthlyInstalment,
+      }));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPhase("response");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -31,17 +47,13 @@ export function Wizard() {
         {phase === "step2" && (
           <Step2 data={data} setData={setData} next={() => setPhase("loading")} back={() => setPhase("step1")} />
         )}
-        {phase === "loading" && (
-          <LoadingPage
-            onDone={() => {
-              setTier(pickTier(data));
-              setPhase("response");
-            }}
-          />
-        )}
+        {phase === "loading" && <LoadingPage onDone={runPrediction} />}
         {phase === "response" && (
           <ResponsePage
-            tier={tier}
+            tier={labelToTier(data.predictionLabel)}
+            reason={data.predictionReason ?? "Pay all your accounts on time, every month, to maintain a healthy credit score."}
+            estimatedApprovalAmount={data.estimatedApprovalAmount ?? 0}
+            monthlyInstalment={data.monthlyInstalment ?? 0}
             consents={data.consents2}
             setConsents={(c) => setData({ ...data, consents2: c })}
             next={() => setPhase("step3")}

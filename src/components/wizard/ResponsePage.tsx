@@ -1,17 +1,10 @@
 import { CheckCircle2, Sparkles, TrendingUp, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { AffordabilityCard } from "./AffordabilityCard";
 
 export type ResponseTier = "in_progress" | "good" | "great";
-
-const TIPS = [
-  "Pay all your accounts on time, every month.",
-  "Keep your credit utilisation below 30% of your limits.",
-  "Avoid applying for multiple credit products in a short window.",
-  "Settle any outstanding judgments or defaults.",
-  "Check your credit report regularly for inaccuracies.",
-];
 
 const CONSENTS = [
   "I give consent to my application being sent to one or more financial institutions.",
@@ -32,7 +25,7 @@ const COPY: Record<ResponseTier, { title: string; sub: string; body: string; acc
   good: {
     title: "Good News!",
     sub: "Your credit rating is solid.",
-    body: "While approval may depend on additional factors, we're confident we can work with you to find the best financing options. Let's move forward and explore your choices!",
+    body: "While approval may depend on additional factors, we're confident we can work with you to find the best financing options.",
     accent: "from-primary to-primary-glow",
   },
   great: {
@@ -45,14 +38,16 @@ const COPY: Record<ResponseTier, { title: string; sub: string; body: string; acc
 
 interface Props {
   tier: ResponseTier;
+  reason: string;
+  estimatedApprovalAmount: number;
+  monthlyInstalment: number;
   consents: boolean[];
   setConsents: (c: boolean[]) => void;
   next: () => void;
 }
 
-export function ResponsePage({ tier, consents, setConsents, next }: Props) {
+export function ResponsePage({ tier, reason, estimatedApprovalAmount, monthlyInstalment, consents, setConsents, next }: Props) {
   const copy = COPY[tier];
-  const tip = useMemo(() => TIPS[Math.floor(Math.random() * TIPS.length)], []);
   const [agreed, setAgreed] = useState(consents);
   const valid = agreed.every(Boolean);
   const Icon = tier === "great" ? Sparkles : tier === "good" ? CheckCircle2 : TrendingUp;
@@ -66,9 +61,7 @@ export function ResponsePage({ tier, consents, setConsents, next }: Props) {
 
   return (
     <div className="space-y-6">
-      <div
-        className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${copy.accent} p-6 text-white shadow-[var(--shadow-elegant)]`}
-      >
+      <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${copy.accent} p-6 text-white shadow-[var(--shadow-elegant)]`}>
         <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
         <Icon className="h-10 w-10" />
         <h2 className="mt-3 text-3xl font-bold tracking-tight">{copy.title}</h2>
@@ -83,10 +76,12 @@ export function ResponsePage({ tier, consents, setConsents, next }: Props) {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-primary">Tip</p>
-            <p className="mt-1 text-sm text-foreground">{tip}</p>
+            <p className="mt-1 text-sm text-foreground">{reason}</p>
           </div>
         </div>
       </div>
+
+      <AffordabilityCard estimatedApprovalAmount={estimatedApprovalAmount} monthlyInstalment={monthlyInstalment} />
 
       <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
         <h3 className="text-base font-semibold">Consent & Declarations</h3>
@@ -110,7 +105,7 @@ export function ResponsePage({ tier, consents, setConsents, next }: Props) {
         disabled={!valid}
         onClick={next}
       >
-        Continue to full application
+        Submit Application
       </Button>
     </div>
   );
