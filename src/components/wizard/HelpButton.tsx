@@ -1,6 +1,7 @@
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, X } from "lucide-react";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
