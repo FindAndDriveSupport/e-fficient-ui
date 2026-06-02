@@ -251,13 +251,6 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
               />
             </FieldRow>
           </Grid2>
-          <FieldRow label="M&M code (optional)">
-            <Input
-              value={data.vehicleMm ?? ""}
-              onChange={(e) => set("vehicleMm", e.target.value)}
-              placeholder="M&M code"
-            />
-          </FieldRow>
         </Section>
 
         {/* Personal */}
@@ -414,14 +407,9 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         {/* Consents */}
         <Section id="consents" title="Consents">
           <CheckboxRow
-            checked={data.dataAttestation}
-            onChange={(v) => set("dataAttestation", v)}
-            label="I consent to Standard Bank collecting and processing my personal information."
-          />
-          <CheckboxRow
-            checked={data.financialAccessConsent}
-            onChange={(v) => set("financialAccessConsent", v)}
-            label="I consent to banks accessing my bank statements and payslip."
+            checked={data.financialAccessConsent && data.dataAttestation}
+            onChange={(v) => { set("financialAccessConsent", v); set("dataAttestation", v); }}
+            label="I consent to Standard Bank collecting and processing my personal information, and to banks accessing my bank statements and payslip."
           />
           <CheckboxRow
             checked={data.marketingConsent}
