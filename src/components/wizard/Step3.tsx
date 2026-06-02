@@ -12,6 +12,7 @@ import {
 import { StepHeader } from "./StepHeader";
 import { CurrencyInput } from "./CurrencyInput";
 import { AddressLookup } from "./AddressLookup";
+import { TypingInput } from "./TypingInput";
 import { EdithErrorBanner } from "./EdithErrorBanner";
 import { FieldErrorHint } from "./FieldErrorHint";
 import { validateSAID } from "./validation";
@@ -229,25 +230,25 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         {/* Vehicle & Dealership */}
         <Section id="vehicle" title="Vehicle & dealership">
           <FieldRow label="Dealership">
-            <Input
+            <TypingInput
               value={data.dealership ?? ""}
-              onChange={(e) => set("dealership", e.target.value)}
-              placeholder="Dealership name"
+              onChange={(v) => set("dealership", v)}
+              phrases={["Search dealership…", "e.g. Standard Bank Motors", "Start typing to search…"]}
             />
           </FieldRow>
           <Grid2>
             <FieldRow label="Vehicle make">
-              <Input
+              <TypingInput
                 value={data.vehicleMake ?? ""}
-                onChange={(e) => set("vehicleMake", e.target.value)}
-                placeholder="e.g. Toyota"
+                onChange={(v) => set("vehicleMake", v)}
+                phrases={["e.g. Toyota", "e.g. Volkswagen", "e.g. Ford"]}
               />
             </FieldRow>
             <FieldRow label="Vehicle model">
-              <Input
+              <TypingInput
                 value={data.vehicleModel ?? ""}
-                onChange={(e) => set("vehicleModel", e.target.value)}
-                placeholder="e.g. Corolla"
+                onChange={(v) => set("vehicleModel", v)}
+                phrases={["e.g. Corolla", "e.g. Polo", "e.g. Ranger"]}
               />
             </FieldRow>
           </Grid2>
