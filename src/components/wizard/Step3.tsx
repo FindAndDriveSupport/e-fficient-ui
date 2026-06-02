@@ -187,9 +187,35 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
   const isMarried = data.maritalStatus === "Married";
   const isRetired = data.employmentType === "Pensioner/Retired";
 
+  // Section completion progress
+  const sections = [
+    !!(data.dealership || data.vehicleMake || data.vehicleModel),
+    !!(data.name && data.surname && data.idNumber && data.mobile),
+    !!(data.address1 && data.postalLocation),
+    !!(data.nokFirst && data.nokLast && data.nokContact),
+    !!(data.employmentType && (isRetired || (data.employerName && data.salaryDay))),
+    !!(data.confirmGross && data.confirmNet),
+    !!(data.dataAttestation && data.financialAccessConsent),
+  ];
+  const completed = sections.filter(Boolean).length;
+  const pct = Math.round((completed / sections.length) * 100);
+
   return (
     <div className="space-y-6">
       <StepHeader step={3} total={3} title="Full application" subtitle="Complete the sections below to submit." onBack={back} />
+
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
+        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+          <span>Application progress</span>
+          <span>{completed} of {sections.length} sections</span>
+        </div>
+        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${pct}%`, backgroundImage: "var(--gradient-primary)" }}
+          />
+        </div>
+      </div>
 
       {errors?.systemMessage && (
         <EdithErrorBanner
@@ -199,7 +225,41 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         />
       )}
 
-      <Accordion type="multiple" defaultValue={["personal", "address"]} className="space-y-3">
+      <Accordion type="multiple" defaultValue={["vehicle", "personal", "address"]} className="space-y-3">
+        {/* Vehicle & Dealership */}
+        <Section id="vehicle" title="Vehicle & dealership">
+          <FieldRow label="Dealership">
+            <Input
+              value={data.dealership ?? ""}
+              onChange={(e) => set("dealership", e.target.value)}
+              placeholder="Dealership name"
+            />
+          </FieldRow>
+          <Grid2>
+            <FieldRow label="Vehicle make">
+              <Input
+                value={data.vehicleMake ?? ""}
+                onChange={(e) => set("vehicleMake", e.target.value)}
+                placeholder="e.g. Toyota"
+              />
+            </FieldRow>
+            <FieldRow label="Vehicle model">
+              <Input
+                value={data.vehicleModel ?? ""}
+                onChange={(e) => set("vehicleModel", e.target.value)}
+                placeholder="e.g. Corolla"
+              />
+            </FieldRow>
+          </Grid2>
+          <FieldRow label="M&M code (optional)">
+            <Input
+              value={data.vehicleMm ?? ""}
+              onChange={(e) => set("vehicleMm", e.target.value)}
+              placeholder="M&M code"
+            />
+          </FieldRow>
+        </Section>
+
         {/* Personal */}
         <Section id="personal" title="Personal details">
           <FieldRow label="Title">

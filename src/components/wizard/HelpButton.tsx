@@ -1,6 +1,7 @@
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, X } from "lucide-react";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -32,8 +33,14 @@ export function HelpButton() {
         className="flex max-h-[90vh] flex-col rounded-t-3xl p-0"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
-        <SheetHeader className="sticky top-0 z-10 border-b border-border bg-background px-5 py-4">
+        <SheetHeader className="sticky top-0 z-10 flex-row items-center justify-between space-y-0 border-b border-border bg-background px-5 py-4">
           <SheetTitle className="text-left">Need a hand?</SheetTitle>
+          <SheetClose
+            aria-label="Close"
+            className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <X className="h-5 w-5" />
+          </SheetClose>
         </SheetHeader>
         <div className="space-y-4 overflow-y-auto px-5 py-4">
           {terms.map((t) => (
