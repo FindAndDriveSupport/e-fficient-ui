@@ -27,8 +27,10 @@ export function Wizard() {
   const embed = useEmbed();
 
   const runPrediction = async () => {
+    let amount = 0;
     try {
       const res = await workerApi.predict(data, embed.dealer);
+      amount = res.estimatedApprovalAmount;
       setData((d) => ({
         ...d,
         predictionLabel: res.prediction.label,
@@ -39,7 +41,7 @@ export function Wizard() {
     } catch (e) {
       console.error(e);
     } finally {
-      setPhase("response");
+      setPhase(amount > 0 && amount < MIN_LOAN ? "belowMin" : "response");
     }
   };
 
