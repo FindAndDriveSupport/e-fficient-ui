@@ -64,6 +64,12 @@ export function Wizard() {
             next={() => setPhase("step3")}
           />
         )}
+        {phase === "belowMin" && (
+          <BelowMinimumPage
+            onDone={() => setPhase("step1")}
+            onClose={() => setPhase("step1")}
+          />
+        )}
         {phase === "step3" && <Step3 data={data} setData={setData} back={() => setPhase("response")} />}
       </div>
       <HelpButton />
