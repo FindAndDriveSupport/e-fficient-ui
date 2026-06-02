@@ -187,9 +187,35 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
   const isMarried = data.maritalStatus === "Married";
   const isRetired = data.employmentType === "Pensioner/Retired";
 
+  // Section completion progress
+  const sections = [
+    !!(data.dealership || data.vehicleMake || data.vehicleModel),
+    !!(data.name && data.surname && data.idNumber && data.mobile),
+    !!(data.address1 && data.postalLocation),
+    !!(data.nokFirst && data.nokLast && data.nokContact),
+    !!(data.employmentType && (isRetired || (data.employerName && data.salaryDay))),
+    !!(data.confirmGross && data.confirmNet),
+    !!(data.dataAttestation && data.financialAccessConsent),
+  ];
+  const completed = sections.filter(Boolean).length;
+  const pct = Math.round((completed / sections.length) * 100);
+
   return (
     <div className="space-y-6">
       <StepHeader step={3} total={3} title="Full application" subtitle="Complete the sections below to submit." onBack={back} />
+
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
+        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+          <span>Application progress</span>
+          <span>{completed} of {sections.length} sections</span>
+        </div>
+        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${pct}%`, backgroundImage: "var(--gradient-primary)" }}
+          />
+        </div>
+      </div>
 
       {errors?.systemMessage && (
         <EdithErrorBanner
