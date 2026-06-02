@@ -3,6 +3,7 @@ import { Step1 } from "./Step1";
 import { Step2 } from "./Step2";
 import { LoadingPage } from "./LoadingPage";
 import { ResponsePage, type ResponseTier } from "./ResponsePage";
+import { BelowMinimumPage } from "./BelowMinimumPage";
 import { Step3 } from "./Step3";
 import { HelpButton } from "./HelpButton";
 import { initialData, type WizardData } from "./types";
@@ -10,13 +11,15 @@ import { Toaster } from "@/components/ui/sonner";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
 
-type Phase = "step1" | "step2" | "loading" | "response" | "step3";
+type Phase = "step1" | "step2" | "loading" | "response" | "belowMin" | "step3";
 
 function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
   if (label === "Great news") return "great";
   if (label === "Good news") return "good";
   return "in_progress";
 }
+
+const MIN_LOAN = 60000;
 
 export function Wizard() {
   const [phase, setPhase] = useState<Phase>("step1");
