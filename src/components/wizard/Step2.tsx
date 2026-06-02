@@ -91,11 +91,16 @@ export function Step2({ data, setData, next, back }: Props) {
                 placeholder="13-digit ID"
                 aria-invalid={!!idError}
               />
-              {idError && (
+              {idError ? (
                 <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
                   <span>⚠</span> {idError}
                 </p>
-              )}
+              ) : touched && data.idNumber.length === 13 ? (
+                <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
+                  <span>✓</span> ID number is valid
+                </p>
+              ) : null}
+
             </Field>
           ) : (
             <Field label="Passport / other ID number">
