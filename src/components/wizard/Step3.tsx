@@ -225,7 +225,41 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         />
       )}
 
-      <Accordion type="multiple" defaultValue={["personal", "address"]} className="space-y-3">
+      <Accordion type="multiple" defaultValue={["vehicle", "personal", "address"]} className="space-y-3">
+        {/* Vehicle & Dealership */}
+        <Section id="vehicle" title="Vehicle & dealership">
+          <FieldRow label="Dealership">
+            <Input
+              value={data.dealership ?? ""}
+              onChange={(e) => set("dealership", e.target.value)}
+              placeholder="Dealership name"
+            />
+          </FieldRow>
+          <Grid2>
+            <FieldRow label="Vehicle make">
+              <Input
+                value={data.vehicleMake ?? ""}
+                onChange={(e) => set("vehicleMake", e.target.value)}
+                placeholder="e.g. Toyota"
+              />
+            </FieldRow>
+            <FieldRow label="Vehicle model">
+              <Input
+                value={data.vehicleModel ?? ""}
+                onChange={(e) => set("vehicleModel", e.target.value)}
+                placeholder="e.g. Corolla"
+              />
+            </FieldRow>
+          </Grid2>
+          <FieldRow label="M&M code (optional)">
+            <Input
+              value={data.vehicleMm ?? ""}
+              onChange={(e) => set("vehicleMm", e.target.value)}
+              placeholder="M&M code"
+            />
+          </FieldRow>
+        </Section>
+
         {/* Personal */}
         <Section id="personal" title="Personal details">
           <FieldRow label="Title">
