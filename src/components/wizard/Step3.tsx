@@ -12,6 +12,7 @@ import {
 import { StepHeader } from "./StepHeader";
 import { CurrencyInput } from "./CurrencyInput";
 import { AddressLookup } from "./AddressLookup";
+import { TypingInput } from "./TypingInput";
 import { EdithErrorBanner } from "./EdithErrorBanner";
 import { FieldErrorHint } from "./FieldErrorHint";
 import { validateSAID } from "./validation";
