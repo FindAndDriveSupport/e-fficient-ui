@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import experianLogo from "@/assets/experian.png";
+import experianLogo from "@/assets/experian.png.asset.json";
 
 const STEPS = [
   "Fetching your affordability information…",
