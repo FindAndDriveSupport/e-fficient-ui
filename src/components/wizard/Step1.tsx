@@ -108,7 +108,7 @@ export function Step1({ data, setData, next }: Props) {
 
           <label className="flex items-center gap-3">
             <Checkbox checked={data.hasFinance} onCheckedChange={(v) => u({ hasFinance: !!v })} />
-            <span className="text-sm font-medium">I currently have finance</span>
+            <span className="text-sm font-medium">I currently have finance (trade-in)</span>
           </label>
           {data.hasFinance && (
             <CurrencyInput value={data.financeAmount} onChange={(v) => u({ financeAmount: v })} placeholder="Current monthly instalment" />
