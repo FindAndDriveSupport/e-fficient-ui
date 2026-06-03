@@ -188,27 +188,46 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
   const isMarried = data.maritalStatus === "Married";
   const isRetired = data.employmentType === "Pensioner/Retired";
 
-  // Section completion progress
-  const sections = [
-    !!(data.dealership || data.vehicleMake || data.vehicleModel),
-    !!(data.name && data.surname && data.idNumber && data.mobile),
-    !!(data.address1 && data.postalLocation),
-    !!(data.nokFirst && data.nokLast && data.nokContact),
-    !!(data.employmentType && (isRetired || (data.employerName && data.salaryDay))),
-    !!(data.confirmGross && data.confirmNet),
-    !!(data.dataAttestation && data.financialAccessConsent),
+  // Field-level completion progress
+  const fieldChecks: boolean[] = [
+    !!data.dealership,
+    !!data.vehicleMake,
+    !!data.vehicleModel,
+    !!data.title,
+    !!data.name,
+    !!data.surname,
+    !!data.idNumber,
+    !!data.mobile,
+    !!data.email,
+    !!data.maritalStatus,
+    !isMarried || !!data.marriageType,
+    !!data.address1,
+    !!data.postalLocation,
+    !!data.residentialStatus,
+    !!data.physicalAddressDate,
+    !!data.nokFirst,
+    !!data.nokLast,
+    !!data.nokContact,
+    !!data.employmentType,
+    isRetired || !!data.employerName,
+    isRetired || !!data.salaryDay,
+    !!data.confirmGross,
+    !!data.confirmNet,
+    !data.hasDeposit || !!data.confirmDeposit,
+    data.dataAttestation && data.financialAccessConsent,
   ];
-  const completed = sections.filter(Boolean).length;
-  const pct = Math.round((completed / sections.length) * 100);
+  const completedFields = fieldChecks.filter(Boolean).length;
+  const totalFields = fieldChecks.length;
+  const pct = Math.round((completedFields / totalFields) * 100);
 
   return (
     <div className="space-y-6">
       <StepHeader step={3} total={3} title="Full application" subtitle="Complete the sections below to submit." onBack={back} />
 
-      <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
+      <div className="sticky top-0 z-30 -mx-4 px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b border-border">
         <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
           <span>Application progress</span>
-          <span>{completed} of {sections.length} sections</span>
+          <span>{pct}% complete</span>
         </div>
         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
@@ -329,7 +348,12 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
               <SelectInput value={data.residentialStatus} onChange={(v) => set("residentialStatus", v)} options={RESIDENTIAL} />
             </FieldRow>
             <FieldRow label="Date moved in">
-              <Input type="date" value={data.physicalAddressDate} onChange={(e) => set("physicalAddressDate", e.target.value)} />
+              <Input
+                type="date"
+                value={data.physicalAddressDate}
+                onChange={(e) => set("physicalAddressDate", e.target.value)}
+                className="pr-3 [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:mr-0 [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+              />
             </FieldRow>
           </Grid2>
         </Section>
@@ -409,7 +433,7 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         <Section id="consents" title="Consents">
           <CheckboxRow
             checked={data.financialAccessConsent && data.dataAttestation}
-            onChange={(v) => { set("financialAccessConsent", v); set("dataAttestation", v); }}
+            onChange={(v) => setData({ ...data, financialAccessConsent: v, dataAttestation: v })}
             label="I consent to Standard Bank collecting and processing my personal information, and to banks accessing my bank statements and payslip."
           />
           <CheckboxRow

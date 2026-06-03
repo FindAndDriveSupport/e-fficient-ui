@@ -25,17 +25,16 @@ export function QualificationBanner({ monthlyAmount, totalAmount, showToggle }: 
         <span className="text-3xl font-bold tracking-tight">{formatRand(amount)}</span>
         <span className="text-sm opacity-90">{label}</span>
       </div>
-      {showToggle ? (
+      {showToggle && (
         <div className="mt-3 flex items-center gap-2 text-xs">
           <span className={monthly ? "font-semibold" : "opacity-70"}>Monthly</span>
           <Switch checked={!monthly} onCheckedChange={(v) => setMonthly(!v)} />
           <span className={!monthly ? "font-semibold" : "opacity-70"}>Total</span>
         </div>
-      ) : (
-        <p className="mt-3 text-[12px] leading-snug opacity-90">
-          Complete the form below to see your estimate.
-        </p>
       )}
+      <p className="mt-3 text-[12px] leading-snug opacity-90">
+        Soft credit and affordability checks are required for accurate amounts. Terms and Conditions apply.
+      </p>
     </div>
   );
 }
