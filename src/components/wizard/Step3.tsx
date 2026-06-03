@@ -409,7 +409,7 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         <Section id="consents" title="Consents">
           <CheckboxRow
             checked={data.financialAccessConsent && data.dataAttestation}
-            onChange={(v) => { set("financialAccessConsent", v); set("dataAttestation", v); }}
+            onChange={(v) => setData({ ...data, financialAccessConsent: v, dataAttestation: v })}
             label="I consent to Standard Bank collecting and processing my personal information, and to banks accessing my bank statements and payslip."
           />
           <CheckboxRow
