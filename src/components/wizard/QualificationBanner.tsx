@@ -34,7 +34,7 @@ export function QualificationBanner({ monthlyAmount, totalAmount, showToggle }: 
       )}
       <p className="mt-3 text-[12px] leading-snug opacity-90">
         Soft credit and affordability checks are required for accurate amounts. Terms and Conditions apply.
-      </p>}
+      </p>
     </div>
   );
 }
