@@ -41,7 +41,7 @@ export function Wizard() {
     } catch (e) {
       console.error(e);
     } finally {
-      setPhase(amount > 0 && amount < MIN_LOAN ? "belowMin" : "response");
+      setPhase(amount <= 0 && amount < MIN_LOAN ? "belowMin" : "response");
     }
   };
 
