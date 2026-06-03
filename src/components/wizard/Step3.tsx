@@ -348,7 +348,12 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
               <SelectInput value={data.residentialStatus} onChange={(v) => set("residentialStatus", v)} options={RESIDENTIAL} />
             </FieldRow>
             <FieldRow label="Date moved in">
-              <Input type="date" value={data.physicalAddressDate} onChange={(e) => set("physicalAddressDate", e.target.value)} />
+              <Input
+                type="date"
+                value={data.physicalAddressDate}
+                onChange={(e) => set("physicalAddressDate", e.target.value)}
+                className="pr-3 [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:mr-0 [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+              />
             </FieldRow>
           </Grid2>
         </Section>
