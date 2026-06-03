@@ -188,27 +188,46 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
   const isMarried = data.maritalStatus === "Married";
   const isRetired = data.employmentType === "Pensioner/Retired";
 
-  // Section completion progress
-  const sections = [
-    !!(data.dealership || data.vehicleMake || data.vehicleModel),
-    !!(data.name && data.surname && data.idNumber && data.mobile),
-    !!(data.address1 && data.postalLocation),
-    !!(data.nokFirst && data.nokLast && data.nokContact),
-    !!(data.employmentType && (isRetired || (data.employerName && data.salaryDay))),
-    !!(data.confirmGross && data.confirmNet),
-    !!(data.dataAttestation && data.financialAccessConsent),
+  // Field-level completion progress
+  const fieldChecks: boolean[] = [
+    !!data.dealership,
+    !!data.vehicleMake,
+    !!data.vehicleModel,
+    !!data.title,
+    !!data.name,
+    !!data.surname,
+    !!data.idNumber,
+    !!data.mobile,
+    !!data.email,
+    !!data.maritalStatus,
+    !isMarried || !!data.marriageType,
+    !!data.address1,
+    !!data.postalLocation,
+    !!data.residentialStatus,
+    !!data.physicalAddressDate,
+    !!data.nokFirst,
+    !!data.nokLast,
+    !!data.nokContact,
+    !!data.employmentType,
+    isRetired || !!data.employerName,
+    isRetired || !!data.salaryDay,
+    !!data.confirmGross,
+    !!data.confirmNet,
+    !data.hasDeposit || !!data.confirmDeposit,
+    data.dataAttestation && data.financialAccessConsent,
   ];
-  const completed = sections.filter(Boolean).length;
-  const pct = Math.round((completed / sections.length) * 100);
+  const completedFields = fieldChecks.filter(Boolean).length;
+  const totalFields = fieldChecks.length;
+  const pct = Math.round((completedFields / totalFields) * 100);
 
   return (
     <div className="space-y-6">
       <StepHeader step={3} total={3} title="Full application" subtitle="Complete the sections below to submit." onBack={back} />
 
-      <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
+      <div className="sticky top-0 z-30 -mx-4 px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b border-border">
         <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
           <span>Application progress</span>
-          <span>{completed} of {sections.length} sections</span>
+          <span>{pct}% complete</span>
         </div>
         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
