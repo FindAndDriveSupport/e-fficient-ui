@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,11 @@ const EDITH_MAP: Record<string, string> = {
   EFTDepositValue: "confirmDeposit",
 };
 
+function capitalise(s?: string) {
+  if (!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
 export function Step3({ data, setData, back }: { data: WizardData; setData: (d: WizardData) => void; back: () => void }) {
   usePageTimer("Step 3 - Full Application");
   const embed = useEmbed();
@@ -69,7 +74,7 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
 
   const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => setData({ ...data, [k]: v });
 
-  // Pre-fill once
+  // Pre-fill from embed params and dealer config
   useState(() => {
     const patch: Partial<WizardData> = {};
     if (!data.vehicleMake && embed.make) patch.vehicleMake = embed.make;
@@ -83,6 +88,24 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
     return null;
   });
 
+  // Pre-fill from Seriti GetApplicantById
+  useEffect(() => {
+    if (!data.applicantId) return;
+    workerApi.getApplicant(data.applicantId, embed.dealer)
+      .then((res) => {
+        setData((d: WizardData) => ({
+          ...d,
+          title: res.title ? capitalise(res.title) : d.title,
+          email: res.emailAddress || d.email,
+          maritalStatus: res.maritalStatus ? capitalise(res.maritalStatus) : d.maritalStatus,
+          employmentType: res.employerName ? "Employed" : d.employmentType,
+          employerName: res.employerName || d.employerName,
+          dealership: d.dealership || dealer.name || "",
+        }));
+      })
+      .catch((e) => console.warn("[Step3] getApplicant failed", e));
+  }, []);
+
   const errorByField = (() => {
     if (!errors) return {} as Record<string, { title: string; message: string; action: string }>;
     const map: Record<string, { title: string; message: string; action: string }> = {};
@@ -95,7 +118,6 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
   })();
 
   const onSubmit = async () => {
-    // Hard validations
     if (!data.surname.trim()) {
       toast.error("Last name is required.");
       return;
@@ -188,7 +210,6 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
   const isMarried = data.maritalStatus === "Married";
   const isRetired = data.employmentType === "Pensioner/Retired";
 
-  // Field-level completion progress
   const fieldChecks: boolean[] = [
     !!data.dealership,
     !!data.vehicleMake,
@@ -528,7 +549,6 @@ function mapEmployment(v: WizardData["employmentType"]): string | undefined {
 }
 
 function formatEdithDate(iso: string): string {
-  // yyyy-mm-dd → dd-MMM-yyyy
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
