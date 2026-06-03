@@ -51,7 +51,7 @@ export const workerApi = {
   preQualify(data: Partial<WizardData>, dealerKey?: string) {
     return call<PreQualResponse>(
       "/api/financing/pre-qualification",
-      { method: "POST", body: JSON.stringify(data) },
+      { method: "POST", body: JSON.stringify({ ...data, firstName: data.name, lastName: data.surname, mobileNumber: data.mobile }) },
       dealerKey,
       () => {
         const net = Number(data.netIncome) || 0;
