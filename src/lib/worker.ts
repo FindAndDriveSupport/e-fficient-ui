@@ -104,7 +104,7 @@ export const workerApi = {
   },
   getApplicant(applicantId: string, dealerKey?: string) {
     return call<ApplicantResponse>(
-      `/api/applicant/${applicantId}`,
+      `/api/financing/applicant?applicantId=${encodeURIComponent(applicantId)}`,
       { method: "GET" },
       dealerKey,
       () => ({
