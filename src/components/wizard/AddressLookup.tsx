@@ -64,11 +64,15 @@ export function AddressLookup({ value, onSelect, error }: Props) {
         headers: { "X-Dealer-Key": embed.dealer ?? "" },
         signal: ctrl.signal,
       });
-      const data: PostalLocation[] = await res.json();
-      setResults(data);
+      const json = await res.json();
+      // addressSearch worker returns { results: [...] } — normalise to array
+      const locations: PostalLocation[] = Array.isArray(json)
+        ? json
+        : (json.results ?? []);
+      setResults(locations);
       setOpen(true);
     } catch {
-      /* ignored */
+      /* aborted or network error — ignore */
     }
   }
 
@@ -107,9 +111,9 @@ export function AddressLookup({ value, onSelect, error }: Props) {
       </div>
       {value && (
         <div className="mt-2 grid grid-cols-3 gap-2">
-          <Input readOnly value={value.suburb} className="bg-muted text-xs" />
-          <Input readOnly value={value.city} className="bg-muted text-xs" />
-          <Input readOnly value={value.postal_code} className="bg-muted text-xs" />
+          <Input readOnly value={value.suburb} className="bg-muted text-xs" placeholder="Suburb" />
+          <Input readOnly value={value.city} className="bg-muted text-xs" placeholder="City" />
+          <Input readOnly value={value.postal_code} className="bg-muted text-xs" placeholder="Postal code" />
         </div>
       )}
       {error && <p className="text-xs text-destructive">⚠ {error}</p>}

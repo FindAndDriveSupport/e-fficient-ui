@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import experianLogo from "@/assets/experian.png.asset.json";
+import experianLogo from "@/assets/344-3446189_experian-logo-png-transparent-png.png";
 
 const STEPS = [
   "Fetching your affordability information…",
@@ -10,10 +10,15 @@ const STEPS = [
 
 export function LoadingPage({ onDone }: { onDone: () => void }) {
   const [i, setI] = useState(0);
+
   useEffect(() => {
-    const t = setInterval(() => setI((p) => p + 1), 900);
+    const t = setInterval(() => setI((p) => {
+      if (p >= STEPS.length) return p;
+      return p + 1;
+    }), 900);
     return () => clearInterval(t);
   }, []);
+
   useEffect(() => {
     if (i >= STEPS.length) {
       const t = setTimeout(onDone, 600);
@@ -59,7 +64,7 @@ export function LoadingPage({ onDone }: { onDone: () => void }) {
 
       <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
         <span>Credit bureau partner</span>
-        <img src={experianLogo.url} alt="Experian" className="h-6" />
+        <img src={experianLogo} alt="Experian" className="h-6" />
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { StepHeader } from "./StepHeader";
 import { CurrencyInput } from "./CurrencyInput";
-import { AddressLookup } from "./AddressLookup";
+import { AddressLookup, type PostalLocation } from "./AddressLookup";
 import { TypingInput } from "./TypingInput";
 import { EdithErrorBanner } from "./EdithErrorBanner";
 import { FieldErrorHint } from "./FieldErrorHint";
@@ -39,7 +39,6 @@ const MARRIAGE_TYPES = [
 const RESIDENTIAL = ["Owner (no bond)", "Owner (bonded)", "Tenant", "Other"];
 const EMPLOYMENT = ["Employed", "Self-employed", "Contract", "Pensioner/Retired"] as const;
 
-// Map Edith FieldName → local key for inline errors
 const EDITH_MAP: Record<string, string> = {
   LastName: "surname",
   FirstName: "name",
@@ -67,16 +66,29 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
   const dealer = useDealer();
 
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<{ policyNumber?: string } | null>(null);
+  const [submitted, setSubmitted] = useState<{ policyNumber?: string; salesRef?: string } | null>(null);
   const [errors, setErrors] = useState<ParsedEdithResponse | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
+  const [addressWarning, setAddressWarning] = useState<string | null>(null);
 
   const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => setData({ ...data, [k]: v });
 
   // Pre-fill from embed params and dealer config
-  useState(() => {
+   useEffect(() => {
     const patch: Partial<WizardData> = {};
+    if (embed.make) patch.vehicleMake = embed.make;
+    if (embed.model) patch.vehicleModel = embed.model;
+    if (embed.mm) patch.vehicleMm = embed.mm;
+    if (dealer.name && dealer.key !== "default") patch.dealership = dealer.name;
+    if (Object.keys(patch).length) setData({ ...data, ...patch });
+}, []);
+
+  // Pre-fill from Seriti GetApplicantById, including auto-resolving postalLocation
+  useEffect(() => {
+    const patch: Partial<WizardData> = {};
+
+    // Embed / dealer pre-fill
     if (!data.vehicleMake && embed.make) patch.vehicleMake = embed.make;
     if (!data.vehicleModel && embed.model) patch.vehicleModel = embed.model;
     if (!data.vehicleMm && embed.mm) patch.vehicleMm = embed.mm;
@@ -84,27 +96,42 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
     if (!data.confirmGross && data.grossIncome) patch.confirmGross = data.grossIncome;
     if (!data.confirmNet && data.netIncome) patch.confirmNet = data.netIncome;
     if (data.hasDeposit && !data.confirmDeposit && data.depositAmount) patch.confirmDeposit = data.depositAmount;
-    if (Object.keys(patch).length) setData({ ...data, ...patch });
-    return null;
-  });
 
-  // Pre-fill from Seriti GetApplicantById
-  useEffect(() => {
-    if (!data.applicantId) return;
+    if (!data.applicantId) {
+      if (Object.keys(patch).length) setData({ ...data, ...patch });
+      return;
+    }
+
     workerApi.getApplicant(data.applicantId, embed.dealer)
-      .then((res) => {
-        setData((d: WizardData) => ({
-          ...d,
-          title: res.title ? capitalise(res.title) : d.title,
-          email: res.emailAddress || d.email,
-          maritalStatus: res.maritalStatus ? capitalise(res.maritalStatus) : d.maritalStatus,
-          employmentType: res.employerName ? "Employed" : d.employmentType,
-          employerName: res.employerName || d.employerName,
-          dealership: d.dealership || dealer.name || "",
-        }));
+      .then(async (res) => {
+        patch.title         = res.title         ? capitalise(res.title)         : data.title;
+        patch.email         = res.emailAddress  || data.email;
+        patch.maritalStatus = res.maritalStatus ? capitalise(res.maritalStatus) : data.maritalStatus;
+        patch.employmentType = res.employerName ? "Employed"                    : data.employmentType;
+        patch.employerName  = res.employerName  || data.employerName;
+        if (!patch.dealership) patch.dealership = data.dealership || dealer.name || "";
+
+        if (!data.postalLocation && (res.township || res.city || res.postalCode)) {
+          const q = res.township || res.city || res.postalCode;
+          try {
+            const workerUrl = import.meta.env.VITE_WORKER_URL as string | undefined;
+            if (workerUrl && q) {
+              const r = await fetch(
+                `${workerUrl}/api/address-search?q=${encodeURIComponent(q)}`,
+                { headers: { "X-Dealer-Key": embed.dealer ?? "" } }
+              );
+              const locations: PostalLocation[] = await r.json();
+              if (locations.length > 0) patch.postalLocation = locations[0];
+            }
+          } catch (e) {
+            console.warn("[Step3] auto address resolve failed", e);
+          }
+        }
+
+        setData({ ...data, ...patch });
       })
       .catch((e) => console.warn("[Step3] getApplicant failed", e));
-  }, []);
+}, []);
 
   const errorByField = (() => {
     if (!errors) return {} as Record<string, { title: string; message: string; action: string }>;
@@ -174,7 +201,7 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
       const res = await workerApi.createPolicy(payload as Partial<WizardData>, dealer.key !== "default" ? dealer.key : embed.dealer);
       const parsed = parseEdithErrors(res);
       if (parsed.isSuccess) {
-        setSubmitted({ policyNumber: res.policyNumber });
+        setSubmitted({ policyNumber: res.policyNumber, salesRef: res.salesRef });
         toast.success("Application submitted");
       } else {
         setErrors(parsed);
@@ -195,9 +222,9 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
           <CheckCircle2 className="h-12 w-12" />
         </div>
         <h2 className="text-2xl font-bold">Application submitted</h2>
-        {submitted.policyNumber && (
+        {(submitted.policyNumber || submitted.salesRef) && (
           <p className="mt-2 text-sm font-medium">
-            Reference: <span className="font-mono">{submitted.policyNumber}</span>
+          Reference: <span className="font-mono">{submitted.policyNumber || submitted.salesRef}</span>
           </p>
         )}
         <p className="mt-2 max-w-xs text-sm text-muted-foreground">
@@ -518,7 +545,7 @@ function SelectInput({ value, onChange, options }: { value: string; onChange: (v
 function CheckboxRow({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <label className="flex items-start gap-3 rounded-lg p-2 -mx-2 hover:bg-muted/40">
-      <Checkbox className="mt-0.5" checked={checked} onCheckedChange={(v) => onChange(!!v)} />
+      <Checkbox className="mt-0.5" checked={checked} onCheckedChange={(v: boolean | "indeterminate") => onChange(!!v)} />
       <span className="text-xs leading-snug">{label}</span>
     </label>
   );

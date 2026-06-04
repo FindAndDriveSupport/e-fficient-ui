@@ -6,11 +6,12 @@
 import type { WizardData } from "@/components/wizard/types";
 
 const WORKER = import.meta.env.VITE_WORKER_URL as string | undefined;
+const DEFAULT_DEALER = "findndrive";
 
 function headers(dealerKey?: string) {
   return {
     "Content-Type": "application/json",
-    ...(dealerKey ? { "X-Dealer-Key": dealerKey } : {}),
+    "X-Dealer-Key": dealerKey || DEFAULT_DEALER,
   };
 }
 
@@ -29,8 +30,20 @@ export interface PredictionResponse {
 
 export interface PolicyResponse {
   policyNumber?: string;
+  salesRef?: string;
   StatusCode?: number;
+  code?: number;
   Errors?: Array<{ FieldName: string; FieldStatusCode: number; Description?: string }>;
+}
+
+export interface ApplicantResponse {
+  title?: string;
+  emailAddress?: string;
+  maritalStatus?: string;
+  employerName?: string;
+  township?: string;
+  city?: string;
+  postalCode?: string;
 }
 
 async function call<T>(path: string, init: RequestInit, dealerKey?: string, mock?: () => T): Promise<T> {
@@ -86,7 +99,23 @@ export const workerApi = {
       "/api/policy/create",
       { method: "POST", body: JSON.stringify(data) },
       dealerKey,
-      () => ({ policyNumber: `POL${Date.now().toString().slice(-8)}`, StatusCode: 100, Errors: [] }),
+      () => ({ policyNumber: `POL${Date.now().toString().slice(-8)}`, salesRef: undefined, StatusCode: 100, code: 100, Errors: [] }),
+    );
+  },
+  getApplicant(applicantId: string, dealerKey?: string) {
+    return call<ApplicantResponse>(
+      `/api/applicant/${applicantId}`,
+      { method: "GET" },
+      dealerKey,
+      () => ({
+        title: undefined,
+        emailAddress: undefined,
+        maritalStatus: undefined,
+        employerName: undefined,
+        township: undefined,
+        city: undefined,
+        postalCode: undefined,
+      }),
     );
   },
 };

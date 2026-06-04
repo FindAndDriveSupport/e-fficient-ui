@@ -828,13 +828,15 @@ export interface ParsedEdithResponse {
 
 export function parseEdithErrors(edithResponse: {
   StatusCode?: number;
+  code?: number;
+  success?: boolean;
   Errors?: EdithFieldError[] | EdithFieldError;
   Response?: { StatusCode?: number; Errors?: EdithFieldError[] | EdithFieldError };
 } | null | undefined): ParsedEdithResponse {
-  const statusCode = edithResponse?.StatusCode ?? edithResponse?.Response?.StatusCode;
+  const statusCode = edithResponse?.StatusCode ?? edithResponse?.code ?? edithResponse?.Response?.StatusCode;
   const errors = edithResponse?.Errors ?? edithResponse?.Response?.Errors ?? [];
 
-  const isSuccess = statusCode === 100 || statusCode === 200;
+  const isSuccess = edithResponse?.success === true || statusCode === 100 || statusCode === 200;
   const isFatal = statusCode === 300 || (typeof statusCode === "number" && statusCode >= 400);
 
   const systemMessage = statusCode != null

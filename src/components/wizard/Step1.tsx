@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,7 +10,6 @@ import type { WizardData } from "./types";
 import { validateMobile } from "./validation";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { usePageTimer, trackHomePageLoad, trackStep1Continue } from "@/lib/mixpanel";
-import { useEffect } from "react";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
 import { toast } from "sonner";
@@ -26,6 +25,12 @@ export function Step1({ data, setData, next }: Props) {
   useEffect(() => { trackHomePageLoad(); }, []);
   const embed = useEmbed();
   const [submitting, setSubmitting] = useState(false);
+  const [initialising, setInitialising] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setInitialising(false), 800);
+    return () => clearTimeout(t);
+  }, []);
 
   const u = (patch: Partial<WizardData>) => setData({ ...data, ...patch });
   const mobile = validateMobile(data.mobile);
@@ -57,6 +62,15 @@ export function Step1({ data, setData, next }: Props) {
       setSubmitting(false);
     }
   };
+
+  if (initialising) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -99,7 +113,7 @@ export function Step1({ data, setData, next }: Props) {
 
         <div className="space-y-3 rounded-xl bg-muted/40 p-3">
           <label className="flex items-center gap-3">
-            <Checkbox checked={data.hasDeposit} onCheckedChange={(v) => u({ hasDeposit: !!v })} />
+            <Checkbox checked={data.hasDeposit} onCheckedChange={(v: boolean | "indeterminate") => u({ hasDeposit: !!v })} />
             <span className="text-sm font-medium">I have a deposit</span>
           </label>
           {data.hasDeposit && (
@@ -107,7 +121,7 @@ export function Step1({ data, setData, next }: Props) {
           )}
 
           <label className="flex items-center gap-3">
-            <Checkbox checked={data.hasFinance} onCheckedChange={(v) => u({ hasFinance: !!v })} />
+            <Checkbox checked={data.hasFinance} onCheckedChange={(v: boolean | "indeterminate") => u({ hasFinance: !!v })} />
             <span className="text-sm font-medium">I currently have finance (trade-in)</span>
           </label>
           {data.hasFinance && (

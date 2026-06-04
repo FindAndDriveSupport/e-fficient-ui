@@ -74,7 +74,7 @@ export function Step2({ data, setData, next, back }: Props) {
 
         <div className="space-y-2">
           <label className="flex items-center gap-3">
-            <Checkbox checked={!data.hasSAID} onCheckedChange={(v) => { u({ hasSAID: !v }); setIdError(null); }} />
+            <Checkbox checked={!data.hasSAID} onCheckedChange={(v: boolean | "indeterminate") => { u({ hasSAID: !v }); setIdError(null); }} />
             <span className="text-sm font-medium">I do not have a South African ID</span>
           </label>
           {data.hasSAID ? (

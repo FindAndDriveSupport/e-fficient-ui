@@ -26,10 +26,11 @@ export function Wizard() {
   const [data, setData] = useState<WizardData>(initialData);
   const embed = useEmbed();
 
-  const runPrediction = async () => {
+  const runPrediction = async (currentData: WizardData) => {
     let amount = 0;
+    let failed = false;
     try {
-      const res = await workerApi.predict(data, embed.dealer);
+      const res = await workerApi.predict(currentData, embed.dealer);
       amount = res.estimatedApprovalAmount;
       setData((d) => ({
         ...d,
@@ -40,8 +41,13 @@ export function Wizard() {
       }));
     } catch (e) {
       console.error(e);
+      failed = true;
     } finally {
-      setPhase(amount <= 0 && amount < MIN_LOAN ? "belowMin" : "response");
+      if (!failed) {
+        setPhase(amount <= 0 || amount < MIN_LOAN ? "belowMin" : "response");
+      } else {
+        setPhase("step2");
+      }
     }
   };
 
@@ -52,7 +58,7 @@ export function Wizard() {
         {phase === "step2" && (
           <Step2 data={data} setData={setData} next={() => setPhase("loading")} back={() => setPhase("step1")} />
         )}
-        {phase === "loading" && <LoadingPage onDone={runPrediction} />}
+        {phase === "loading" && <LoadingPage onDone={() => runPrediction(data)} />}
         {phase === "response" && (
           <ResponsePage
             tier={labelToTier(data.predictionLabel)}
