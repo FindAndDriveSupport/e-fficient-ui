@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import experianLogo from "@/assets/344-3446189_experian-logo-png-transparent-png.png";
+import experianLogo from "@/assets/experian_idfKXIhI6C_0.png";;
 
 const STEPS = [
   "Fetching your affordability information…",
@@ -64,7 +64,7 @@ export function LoadingPage({ onDone }: { onDone: () => void }) {
 
       <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
         <span>Credit bureau partner</span>
-        <img src={experianLogo} alt="Experian" className="h-6" />
+        <img src={experianLogo} alt="Experian" className="h-8" />
       </div>
     </div>
   );
