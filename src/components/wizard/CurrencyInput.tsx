@@ -38,7 +38,6 @@ export function CurrencyInput({ label, value, onChange, placeholder = "0", max, 
           onChange={(e) => {
             const n = parseThousands(e.target.value);
             if (max != null && n !== "" && n > max) {
-              onChange(max);
               return;
             }
             onChange(n);
