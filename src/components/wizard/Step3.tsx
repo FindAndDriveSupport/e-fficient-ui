@@ -13,6 +13,7 @@ import { StepHeader } from "./StepHeader";
 import { CurrencyInput } from "./CurrencyInput";
 import { AddressLookup, type PostalLocation } from "./AddressLookup";
 import { TypingInput } from "./TypingInput";
+import { LookupSelect } from "./LookupSelect";
 import { EdithErrorBanner } from "./EdithErrorBanner";
 import { FieldErrorHint } from "./FieldErrorHint";
 import { validateSAID } from "./validation";
@@ -188,6 +189,9 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         employmentType: mapEmployment(data.employmentType),
         employerName: data.employmentType === "Pensioner/Retired" ? undefined : data.employerName,
         salaryDay: data.employmentType === "Pensioner/Retired" ? undefined : Number(data.salaryDay) || undefined,
+        occupation: data.occupation || undefined,
+        occupationLevel: data.occupationLevel || undefined,
+        industry: data.industry || undefined,
         basicSalary: Number(data.confirmGross) || undefined,
         nettSalary: Number(data.confirmNet) || undefined,
         depositAmount: Number(data.confirmDeposit) > 0 ? Number(data.confirmDeposit) : undefined,
@@ -439,21 +443,46 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
             />
           </FieldRow>
           {!isRetired && (
-            <Grid2>
-              <FieldRow label="Employer name">
-                <Input maxLength={50} value={data.employerName} onChange={(e) => set("employerName", e.target.value)} />
-                {errorByField.employerName && <FieldErrorHint {...errorByField.employerName} />}
-              </FieldRow>
-              <FieldRow label="Salary day (1–31)">
-                <Input
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={data.salaryDay}
-                  onChange={(e) => set("salaryDay", e.target.value)}
+            <>
+              <Grid2>
+                <FieldRow label="Employer name">
+                  <Input maxLength={50} value={data.employerName} onChange={(e) => set("employerName", e.target.value)} />
+                  {errorByField.employerName && <FieldErrorHint {...errorByField.employerName} />}
+                </FieldRow>
+                <FieldRow label="Salary day (1–31)">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={data.salaryDay}
+                    onChange={(e) => set("salaryDay", e.target.value)}
+                  />
+                </FieldRow>
+              </Grid2>
+              <FieldRow label="Occupation">
+                <LookupSelect
+                  value={data.occupation}
+                  onChange={(v) => set("occupation", v)}
+                  endpoint="/api/lookup/occupations"
+                  placeholder="Search occupation…"
                 />
               </FieldRow>
-            </Grid2>
+              <FieldRow label="Occupation level">
+                <SelectInput
+                  value={data.occupationLevel}
+                  onChange={(v) => set("occupationLevel", v)}
+                  options={["SENIOR MANAGEMENT","MANAGEMENT","SUPERVISOR","SKILLED WORKER","SEMI-SKILLED WORKER","UNSKILLED WORKER","JUNIOR POSITION"]}
+                />
+              </FieldRow>
+              <FieldRow label="Type of industry">
+                <LookupSelect
+                  value={data.industry}
+                  onChange={(v) => set("industry", v)}
+                  endpoint="/api/lookup/industries"
+                  placeholder="Search industry…"
+                />
+              </FieldRow>
+            </>
           )}
         </Section>
 

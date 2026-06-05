@@ -51,6 +51,9 @@ export interface WizardData {
   // Step 3 — Employment
   employmentType: "Employed" | "Self-employed" | "Contract" | "Pensioner/Retired" | "";
   employerName: string;
+  occupation: string;
+  occupationLevel: string;
+  industry: string;
   salaryDay: string;
 
   // Step 3 — Financial confirmation
@@ -107,6 +110,9 @@ export const initialData: WizardData = {
 
   employmentType: "",
   employerName: "",
+  occupation: "",
+  occupationLevel: "",
+  industry: "",
   salaryDay: "",
 
   confirmGross: "",
