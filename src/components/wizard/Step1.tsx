@@ -88,7 +88,7 @@ export function Step1({ data, setData, next }: Props) {
         </div>
 
         <CurrencyInput
-          label="Net Salary / Take-home Salary (monthly, max R150 000)"
+          label="Net Salary / Take-home Salary (monthly)"
           value={data.netIncome}
           max={150000}
           onChange={(v) => u({ netIncome: v })}

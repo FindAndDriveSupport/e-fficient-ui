@@ -66,7 +66,7 @@ export function Step2({ data, setData, next, back }: Props) {
 
       <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
         <CurrencyInput
-          label="Gross income (monthly, max R250 000)"
+          label="Gross income (monthly)"
           value={data.grossIncome}
           max={250000}
           onChange={(v) => u({ grossIncome: v })}
