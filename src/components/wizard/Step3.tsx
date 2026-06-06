@@ -111,6 +111,7 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         patch.employmentType = res.employerName ? "Employed"                    : data.employmentType;
         patch.employerName  = res.employerName  || data.employerName;
         if (!patch.dealership) patch.dealership = data.dealership || dealer.name || "";
+        if (res.bureauExpenses) patch.bureauExpenses = res.bureauExpenses;
 
         if (!data.postalLocation && (res.township || res.city || res.postalCode)) {
           const q = res.township || res.city || res.postalCode;
@@ -192,6 +193,13 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         occupation: data.occupation || undefined,
         occupationLevel: data.occupationLevel || undefined,
         industry: data.industry || undefined,
+        gender: data.idType === "RSA ID" && data.idNumber?.length === 13
+          ? (parseInt(data.idNumber.substring(6, 10)) >= 5000 ? "MALE" : "FEMALE")
+          : undefined,
+        bureauExpenses: data.bureauExpenses || undefined,
+        currentEmploymentStartDate: data.currentEmploymentStartDate
+          ? formatEdithDate(data.currentEmploymentStartDate)
+          : undefined,
         basicSalary: Number(data.confirmGross) || undefined,
         nettSalary: Number(data.confirmNet) || undefined,
         depositAmount: Number(data.confirmDeposit) > 0 ? Number(data.confirmDeposit) : undefined,

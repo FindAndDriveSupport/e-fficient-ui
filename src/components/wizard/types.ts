@@ -52,6 +52,8 @@ export interface WizardData {
   employmentType: "Employed" | "Self-employed" | "Contract" | "Pensioner/Retired" | "";
   employerName: string;
   occupation: string;
+  currentEmploymentStartDate: string;
+  bureauExpenses: number | "";
   occupationLevel: string;
   industry: string;
   salaryDay: string;
@@ -111,6 +113,8 @@ export const initialData: WizardData = {
   employmentType: "",
   employerName: "",
   occupation: "",
+  currentEmploymentStartDate: "",
+  bureauExpenses: "",
   occupationLevel: "",
   industry: "",
   salaryDay: "",
