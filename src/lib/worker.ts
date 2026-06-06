@@ -44,6 +44,7 @@ export interface ApplicantResponse {
   township?: string;
   city?: string;
   postalCode?: string;
+  bureauExpenses?: number;
 }
 
 async function call<T>(path: string, init: RequestInit, dealerKey?: string, mock?: () => T): Promise<T> {
