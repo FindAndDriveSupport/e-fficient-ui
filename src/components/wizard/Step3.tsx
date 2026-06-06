@@ -536,7 +536,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
       <AccordionTrigger className="px-5 py-4 hover:no-underline">
         <span className="text-left text-sm font-semibold">{title}</span>
       </AccordionTrigger>
-      <AccordionContent className="space-y-3 px-5 pb-5 overflow-visible">{children}</AccordionContent>
+      <AccordionContent className="space-y-3 px-5 pb-5" style={{ overflow: "visible" }}>{children}</AccordionContent>
     </AccordionItem>
   );
 }
