@@ -71,32 +71,18 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
   const [errors, setErrors] = useState<ParsedEdithResponse | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
-  const [addressWarning, setAddressWarning] = useState<string | null>(null);
 
   const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => setData({ ...data, [k]: v });
 
-  // Pre-fill from embed params and dealer config
-   useEffect(() => {
+  useEffect(() => {
     const patch: Partial<WizardData> = {};
     if (embed.make) patch.vehicleMake = embed.make;
     if (embed.model) patch.vehicleModel = embed.model;
     if (embed.mm) patch.vehicleMm = embed.mm;
     if (dealer.name && dealer.key !== "default") patch.dealership = dealer.name;
-    if (Object.keys(patch).length) setData({ ...data, ...patch });
-}, []);
-
-  // Pre-fill from Seriti GetApplicantById, including auto-resolving postalLocation
-  useEffect(() => {
-    const patch: Partial<WizardData> = {};
-
-    // Embed / dealer pre-fill
-    if (!data.vehicleMake && embed.make) patch.vehicleMake = embed.make;
-    if (!data.vehicleModel && embed.model) patch.vehicleModel = embed.model;
-    if (!data.vehicleMm && embed.mm) patch.vehicleMm = embed.mm;
-    if (!data.dealership && dealer.name && dealer.key !== "default") patch.dealership = dealer.name;
-    if (!data.confirmGross && data.grossIncome) patch.confirmGross = data.grossIncome;
-    if (!data.confirmNet && data.netIncome) patch.confirmNet = data.netIncome;
-    if (data.hasDeposit && !data.confirmDeposit && data.depositAmount) patch.confirmDeposit = data.depositAmount;
+    if (data.grossIncome) patch.confirmGross = data.grossIncome;
+    if (data.netIncome) patch.confirmNet = data.netIncome;
+    if (data.hasDeposit && data.depositAmount) patch.confirmDeposit = data.depositAmount;
 
     if (!data.applicantId) {
       if (Object.keys(patch).length) setData({ ...data, ...patch });
@@ -105,14 +91,11 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
 
     workerApi.getApplicant(data.applicantId, embed.dealer)
       .then(async (res) => {
-        patch.title         = res.title         ? capitalise(res.title)         : data.title;
-        patch.email         = res.emailAddress  || data.email;
-        patch.maritalStatus = res.maritalStatus ? capitalise(res.maritalStatus) : data.maritalStatus;
-        patch.employmentType = res.employerName ? "Employed"                    : data.employmentType;
-        patch.employerName  = res.employerName  || data.employerName;
-        if (!patch.dealership) patch.dealership = data.dealership || dealer.name || "";
+        if (res.title) patch.title = capitalise(res.title);
+        if (res.emailAddress) patch.email = res.emailAddress;
+        if (res.maritalStatus) patch.maritalStatus = capitalise(res.maritalStatus);
+        if (res.employerName) { patch.employmentType = "Employed"; patch.employerName = res.employerName; }
         if (res.bureauExpenses) patch.bureauExpenses = res.bureauExpenses;
-
         if (!data.postalLocation && (res.township || res.city || res.postalCode)) {
           const q = res.township || res.city || res.postalCode;
           try {
@@ -122,18 +105,18 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
                 `${workerUrl}/api/address-search?q=${encodeURIComponent(q)}`,
                 { headers: { "X-Dealer-Key": embed.dealer ?? "" } }
               );
-              const locations: PostalLocation[] = await r.json();
+              const json = await r.json();
+              const locations: PostalLocation[] = json.results || [];
               if (locations.length > 0) patch.postalLocation = locations[0];
             }
           } catch (e) {
             console.warn("[Step3] auto address resolve failed", e);
           }
         }
-
         setData({ ...data, ...patch });
       })
       .catch((e) => console.warn("[Step3] getApplicant failed", e));
-}, []);
+  }, []);
 
   const errorByField = (() => {
     if (!errors) return {} as Record<string, { title: string; message: string; action: string }>;
@@ -239,7 +222,7 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         <h2 className="text-2xl font-bold">Application submitted</h2>
         {(submitted.policyNumber || submitted.salesRef) && (
           <p className="mt-2 text-sm font-medium">
-          Reference: <span className="font-mono">{submitted.policyNumber || submitted.salesRef}</span>
+            Reference: <span className="font-mono">{submitted.policyNumber || submitted.salesRef}</span>
           </p>
         )}
         <p className="mt-2 max-w-xs text-sm text-muted-foreground">
