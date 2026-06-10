@@ -1,0 +1,8 @@
+name       = "e-fficient-ui-DEALER_KEY"
+main       = "dist/server/server.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+assets = { directory = "dist/client" }
+
+[vars]
+NODE_ENV = "production"
