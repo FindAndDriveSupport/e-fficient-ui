@@ -79,7 +79,7 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
     if (embed.make) patch.vehicleMake = embed.make;
     if (embed.model) patch.vehicleModel = embed.model;
     if (embed.mm) patch.vehicleMm = embed.mm;
-    if (dealer.name && dealer.key !== "default") patch.dealership = dealer.name;
+    if (dealer.name) patch.dealership = dealer.name;
     if (data.grossIncome) patch.confirmGross = data.grossIncome;
     if (data.netIncome) patch.confirmNet = data.netIncome;
     if (data.hasDeposit && data.depositAmount) patch.confirmDeposit = data.depositAmount;
