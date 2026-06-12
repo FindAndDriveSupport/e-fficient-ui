@@ -1,4 +1,4 @@
-name       = "e-fficient-ui-DEALER_KEY"
+name       = "e-fficient-ui"
 main       = "dist/server/server.js"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
