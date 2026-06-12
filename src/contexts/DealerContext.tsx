@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useEmbed } from "./EmbedContext";
+import { getDealerConfig } from "@/config/dealerConfig";
 
 export interface DealerTheme {
   primary?: string;
@@ -39,27 +40,21 @@ export function DealerProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<DealerConfig>(DEFAULT_CONFIG);
 
   useEffect(() => {
-    const worker = import.meta.env.VITE_WORKER_URL as string | undefined;
-    if (!worker || !dealer) return;
-    let cancelled = false;
-    fetch(`${worker}/api/dealer/config`, { headers: { "X-Dealer-Key": dealer } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: DealerConfig | null) => {
-        if (cancelled || !data) return;
-        setConfig(data);
-        const t = data.theme || {};
-        const root = document.documentElement;
-        if (t.primary) root.style.setProperty("--dealer-primary", t.primary);
-        if (t.gradient) root.style.setProperty("--gradient-primary", t.gradient);
-        if (t.borderRadius) root.style.setProperty("--radius", t.borderRadius);
-      })
-      .catch((e) => console.warn("[Dealer] config fetch failed", e));
-    return () => {
-      cancelled = true;
-    };
+    // Read config from dealerConfig.ts — no API call needed
+    const dealerConfig = getDealerConfig(dealer);
+    setConfig(dealerConfig);
+
+    // Apply theme CSS vars to document root
+    const t = dealerConfig.theme || {};
+    const root = document.documentElement;
+    if (t.primary)      root.style.setProperty("--dealer-primary", t.primary);
+    if (t.gradient)     root.style.setProperty("--gradient-primary", t.gradient);
+    if (t.borderRadius) root.style.setProperty("--radius", t.borderRadius);
+    if (t.fontFamily)   root.style.setProperty("--font-family", t.fontFamily);
   }, [dealer]);
 
   const value = useMemo(() => config, [config]);
+
   return <DealerContext.Provider value={value}>{children}</DealerContext.Provider>;
 }
 
