@@ -17,7 +17,7 @@ export function QualificationBanner({ monthlyAmount, totalAmount, showToggle }: 
   return (
     <div
       className="relative overflow-hidden rounded-2xl p-5 text-primary-foreground shadow-[var(--shadow-elegant)]"
-      style={{ backgroundImage: "var(--gradient-hero)" }}
+      style={{ backgroundImage: "var(--gradient-primary)" }}
     >
       <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
       <p className="text-xs uppercase tracking-wider opacity-80">You may qualify for</p>
