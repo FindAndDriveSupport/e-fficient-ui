@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { StepHeader } from "./StepHeader";
 import { TypingInput } from "./TypingInput";
-import { FileUpload, type UploadedFile } from "./FileUpload";
+import { fileUpload, type UploadedFile } from "./fileUpload";
 import type { WizardData } from "./types";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
