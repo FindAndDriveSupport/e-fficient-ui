@@ -15,10 +15,11 @@ jobs:
       - run: npm install
       - run: npm run build
         env:
-          VITE_WORKER_URL: ${{ secrets.VITE_WORKER_URL }}
+          VITE_WORKER_URL: https://seritifinance.findndrive.co.za
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --config .output/server/wrangler.json
+
