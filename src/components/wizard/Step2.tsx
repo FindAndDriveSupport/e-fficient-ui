@@ -44,7 +44,6 @@ export function Step2({ data, setData, next, back }: Props) {
   const valid =
     Number(data.grossIncome) > 0 &&
     Number(data.grossIncome) <= 250000 &&
-    Number(data.livingExpenses) >= 0 &&
     (!data.hasSAID || data.idNumber.trim().length >= 6) &&
     (data.hasSAID || data.idNumber.trim().length >= 4) &&
     data.consents1.every(Boolean);
@@ -108,12 +107,6 @@ export function Step2({ data, setData, next, back }: Props) {
             </Field>
           )}
         </div>
-
-        <CurrencyInput
-          label="Total monthly living expenses"
-          value={data.livingExpenses}
-          onChange={(v) => u({ livingExpenses: v })}
-        />
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
@@ -152,3 +145,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+

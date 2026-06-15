@@ -24,7 +24,13 @@ import { useEmbed } from "@/contexts/EmbedContext";
 import { useDealer } from "@/contexts/DealerContext";
 import { workerApi } from "@/lib/worker";
 import { parseEdithErrors, type ParsedEdithResponse } from "@/lib/edithErrors";
-import { usePageTimer, trackStep3SubmitApplication } from "@/lib/mixpanel";
+import {
+  usePageTimer,
+  trackStep3Started,
+  trackStep3SubmitApplication,
+  trackStep3SubmitApplicationResult,
+} from "@/lib/mixpanel";
+import { buildEdithPayload } from "./edithPayload";
 
 const TITLES = ["Mr", "Mrs", "Miss", "Ms", "Dr", "Prof", "Adv", "Hon", "Rev"];
 const ID_TYPES = ["RSA ID", "Passport", "Other ID"] as const;
@@ -61,7 +67,7 @@ function capitalise(s?: string) {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-export function Step3({ data, setData, back }: { data: WizardData; setData: (d: WizardData) => void; back: () => void }) {
+export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardData; setData: (d: WizardData) => void; back: () => void; onSwitchToFast?: () => void }) {
   usePageTimer("Step 3 - Full Application");
   const embed = useEmbed();
   const dealer = useDealer();
@@ -73,6 +79,11 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
   const [addressError, setAddressError] = useState<string | null>(null);
 
   const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => setData({ ...data, [k]: v });
+
+  // Fire once when Step 3 first mounts (start of full application)
+  useEffect(() => {
+    trackStep3Started();
+  }, []);
 
   useEffect(() => {
     const patch: Partial<WizardData> = {};
@@ -116,7 +127,7 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
         setData({ ...data, ...patch });
       })
       .catch((e) => console.warn("[Step3] getApplicant failed", e));
-  }, []);
+  }, [dealer.name]);
 
   const errorByField = (() => {
     if (!errors) return {} as Record<string, { title: string; message: string; action: string }>;
@@ -150,63 +161,27 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
     setSubmitting(true);
     setErrors(null);
     try {
-      const payload = {
-        title: data.title?.toUpperCase(),
-        firstName: data.name,
-        lastName: data.surname,
-        idType: data.idType.toUpperCase(),
-        idNumber: data.idNumber,
-        mobileNumber: data.mobile.replace(/\D/g, ""),
-        emailAddress: data.email,
-        maritalStatus: data.maritalStatus?.toUpperCase(),
-        marriageType: data.maritalStatus === "Married" ? data.marriageType : undefined,
-        address1: data.address1,
-        postalLocationId: data.postalLocation?.id,
-        suburb: data.postalLocation?.suburb,
-        city: data.postalLocation?.city,
-        postCode: data.postalLocation?.postal_code,
-        residentialStatus: mapResidential(data.residentialStatus),
-        physicalAddressDate: data.physicalAddressDate ? formatEdithDate(data.physicalAddressDate) : undefined,
-        nextOfKinFirstName: data.nokFirst,
-        nextOfKinLastName: data.nokLast,
-        nextOfKinMobile: data.nokContact.replace(/\D/g, ""),
-        employmentType: mapEmployment(data.employmentType),
-        employerName: data.employmentType === "Pensioner/Retired" ? undefined : data.employerName,
-        salaryDay: data.employmentType === "Pensioner/Retired" ? undefined : Number(data.salaryDay) || undefined,
-        occupation: data.occupation || undefined,
-        occupationLevel: data.occupationLevel || undefined,
-        industry: data.industry || undefined,
-        gender: data.idType === "RSA ID" && data.idNumber?.length === 13
-          ? (parseInt(data.idNumber.substring(6, 10)) >= 5000 ? "MALE" : "FEMALE")
-          : undefined,
-        bureauExpenses: data.bureauExpenses || undefined,
-        currentEmploymentStartDate: data.currentEmploymentStartDate
-          ? formatEdithDate(data.currentEmploymentStartDate)
-          : undefined,
-        basicSalary: Number(data.confirmGross) || undefined,
-        nettSalary: Number(data.confirmNet) || undefined,
-        depositAmount: Number(data.confirmDeposit) > 0 ? Number(data.confirmDeposit) : undefined,
-        dataAttestation: data.dataAttestation,
-        financialAccessConsent: data.financialAccessConsent,
-        marketingConsent: data.marketingConsent,
-        vehicleMake: data.vehicleMake,
-        vehicleModel: data.vehicleModel,
-        vehicleMm: data.vehicleMm,
-        estimatedApprovalAmount: data.estimatedApprovalAmount,
-        applicantId: data.applicantId,
-      };
+      const payload = buildEdithPayload(data);
 
-      const res = await workerApi.createPolicy(payload as Partial<WizardData>, dealer.key !== "default" ? dealer.key : embed.dealer);
+      const res = await workerApi.createPolicy(payload, dealer.key !== "default" ? dealer.key : embed.dealer);
       const parsed = parseEdithErrors(res);
       if (parsed.isSuccess) {
         setSubmitted({ policyNumber: res.policyNumber, salesRef: res.salesRef });
+        trackStep3SubmitApplicationResult(true, {
+          policyNumber: res.policyNumber,
+          salesRef: res.salesRef,
+        });
         toast.success("Application submitted");
       } else {
         setErrors(parsed);
+        trackStep3SubmitApplicationResult(false, {
+          fieldErrorCount: parsed.fieldErrors?.length ?? 0,
+        });
         toast.error("Please review the highlighted items");
       }
     } catch (err) {
       console.error(err);
+      trackStep3SubmitApplicationResult(false, { networkError: true });
       toast.error("Unable to connect. Please try again.");
     } finally {
       setSubmitting(false);
@@ -269,6 +244,18 @@ export function Step3({ data, setData, back }: { data: WizardData; setData: (d: 
   return (
     <div className="space-y-6">
       <StepHeader step={3} total={3} title="Full application" subtitle="Complete the sections below to submit." onBack={back} />
+
+      {onSwitchToFast && (
+        <button
+          type="button"
+          onClick={onSwitchToFast}
+          className="w-full rounded-xl border border-border bg-muted/40 p-3 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/60"
+        >
+          Don't want to fill out the long form?{" "}
+          <span className="font-semibold text-foreground underline">Try our fast application</span> — just upload
+          your documents and we'll handle the rest.
+        </button>
+      )}
 
       <div className="sticky top-0 z-30 -mx-4 px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b border-border">
         <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
@@ -572,36 +559,4 @@ function CheckboxRow({ checked, onChange, label }: { checked: boolean; onChange:
       <span className="text-xs leading-snug">{label}</span>
     </label>
   );
-}
-
-function mapResidential(v: string): string | undefined {
-  switch (v) {
-    case "Owner (no bond)": return "OWNER BOND FREE";
-    case "Owner (bonded)": return "OWNER BONDED";
-    case "Tenant": return "TENANT";
-    case "Other": return "BOARDER";
-    default: return undefined;
-  }
-}
-
-function mapEmployment(v: WizardData["employmentType"]): string | undefined {
-  switch (v) {
-    case "Employed":
-    case "Contract":
-      return "EMPLOYED";
-    case "Self-employed":
-      return "SELF-EMPLOYED";
-    case "Pensioner/Retired":
-      return "RETIRED";
-    default:
-      return undefined;
-  }
-}
-
-function formatEdithDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${dd}-${months[d.getMonth()]}-${d.getFullYear()}`;
 }

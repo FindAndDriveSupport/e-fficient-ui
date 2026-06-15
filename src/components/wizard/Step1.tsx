@@ -9,7 +9,13 @@ import { CurrencyInput } from "./CurrencyInput";
 import type { WizardData } from "./types";
 import { validateMobile } from "./validation";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { usePageTimer, trackHomePageLoad, trackStep1Continue } from "@/lib/mixpanel";
+import {
+  usePageTimer,
+  trackHomePageLoad,
+  trackStep1Continue,
+  trackStep1DepositClicked,
+  trackStep1CurrentFinanceClicked,
+} from "@/lib/mixpanel";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
 import { toast } from "sonner";
@@ -113,7 +119,14 @@ export function Step1({ data, setData, next }: Props) {
 
         <div className="space-y-3 rounded-xl bg-muted/40 p-3">
           <label className="flex items-center gap-3">
-            <Checkbox checked={data.hasDeposit} onCheckedChange={(v: boolean | "indeterminate") => u({ hasDeposit: !!v })} />
+            <Checkbox
+              checked={data.hasDeposit}
+              onCheckedChange={(v: boolean | "indeterminate") => {
+                const checked = !!v;
+                trackStep1DepositClicked(checked);
+                u({ hasDeposit: checked });
+              }}
+            />
             <span className="text-sm font-medium">I have a deposit</span>
           </label>
           {data.hasDeposit && (
@@ -121,7 +134,14 @@ export function Step1({ data, setData, next }: Props) {
           )}
 
           <label className="flex items-center gap-3">
-            <Checkbox checked={data.hasFinance} onCheckedChange={(v: boolean | "indeterminate") => u({ hasFinance: !!v })} />
+            <Checkbox
+              checked={data.hasFinance}
+              onCheckedChange={(v: boolean | "indeterminate") => {
+                const checked = !!v;
+                trackStep1CurrentFinanceClicked(checked);
+                u({ hasFinance: checked });
+              }}
+            />
             <span className="text-sm font-medium">I currently have finance (trade-in)</span>
           </label>
           {data.hasFinance && (

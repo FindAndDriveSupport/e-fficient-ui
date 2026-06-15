@@ -5,7 +5,7 @@
  *   <script>
  *     window.EfficientWidget = { dealer: "north-western-ford" };
  *   </script>
- *   <script src="https://e-fficient-ui.still-fire-1c3d.workers.dev/widget.js"></script>
+ *   <script src="https://e-fficient-ui-{key}.still-fire-1c3d.workers.dev/widget.js"></script>
  *
  * Config options:
  *   dealer      {string}  required — dealer key from dealers.config.js
@@ -25,7 +25,18 @@
     return;
   }
 
-  var WIDGET_URL    = 'https://findanddrivesupport-e-fficient-ui.still-fire-1c3d.workers.dev';
+  // Derive widget URL from this script's own src so each dealer Worker serves its own widget
+  var WIDGET_URL = (function () {
+    var scripts = document.getElementsByTagName('script');
+    for (var i = 0; i < scripts.length; i++) {
+      var src = scripts[i].src || '';
+      if (src.indexOf('/widget.js') !== -1) {
+        return src.replace(/\/widget\.js.*$/, '');
+      }
+    }
+    return '';
+  })();
+
   var position      = config.position || 'bottom-right';
   var label         = config.label    || 'Check affordability';
   var tagline       = config.tagline  || 'Find out what you can qualify for in 60 seconds. No credit impact.';
@@ -185,9 +196,22 @@
     return WIDGET_URL + '/?' + params.toString();
   }
 
+  // Track widget opens for unique click / engagement analytics
+  function trackWidgetOpened() {
+    try {
+      if (window.mixpanel && typeof window.mixpanel.track === 'function') {
+        window.mixpanel.track('Widget Opened', { dealer: dealer });
+      }
+    } catch (e) {
+      // fail silently — analytics should never break the widget
+    }
+  }
+
   function open() {
     if (isOpen) return;
     isOpen = true;
+
+    trackWidgetOpened();
 
     // Lazy-load iframe on first open
     if (!iframeLoaded) {

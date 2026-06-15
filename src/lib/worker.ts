@@ -45,6 +45,35 @@ export interface ApplicantResponse {
   city?: string;
   postalCode?: string;
   bureauExpenses?: number;
+  address1?: string;
+  suburb?: string;
+  province?: string;
+  occupation?: string;
+  occupationLevel?: string;
+  industry?: string;
+  salaryDay?: string;
+  currentEmploymentStartDate?: string;
+  gender?: string;
+  educationLevel?: string;
+}
+
+export interface SubmitDocumentsPayload {
+  policyNumber: string;
+  salesRef?: string;
+  documents: Array<{
+    category: string;
+    description?: string;
+    base64: string;
+    fileExtension: string;
+  }>;
+}
+
+export interface SubmitDocumentsResponse {
+  success: boolean;
+  policyNumber?: string;
+  message?: string;
+  error?: string;
+  code?: number;
 }
 
 async function call<T>(path: string, init: RequestInit, dealerKey?: string, mock?: () => T): Promise<T> {
@@ -117,6 +146,14 @@ export const workerApi = {
         city: undefined,
         postalCode: undefined,
       }),
+    );
+  },
+  submitDocuments(data: SubmitDocumentsPayload, dealerKey?: string) {
+    return call<SubmitDocumentsResponse>(
+      "/api/policy/documents",
+      { method: "POST", body: JSON.stringify(data) },
+      dealerKey,
+      () => ({ success: true, policyNumber: data.policyNumber, message: "Documents submitted (mock)" }),
     );
   },
 };

@@ -5,13 +5,14 @@ import { LoadingPage } from "./LoadingPage";
 import { ResponsePage, type ResponseTier } from "./ResponsePage";
 import { BelowMinimumPage } from "./BelowMinimumPage";
 import { Step3 } from "./Step3";
+import { Step3Fast } from "./Step3Fast";
 import { HelpButton } from "./HelpButton";
 import { initialData, type WizardData } from "./types";
 import { Toaster } from "@/components/ui/sonner";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
 
-type Phase = "step1" | "step2" | "loading" | "response" | "belowMin" | "step3";
+type Phase = "step1" | "step2" | "loading" | "response" | "belowMin" | "step3" | "step3fast";
 
 function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
   if (label === "Great news") return "great";
@@ -76,7 +77,22 @@ export function Wizard() {
             onClose={() => setPhase("step1")}
           />
         )}
-        {phase === "step3" && <Step3 data={data} setData={setData} back={() => setPhase("response")} />}
+        {phase === "step3" && (
+          <Step3
+            data={data}
+            setData={setData}
+            back={() => setPhase("response")}
+            onSwitchToFast={() => setPhase("step3fast")}
+          />
+        )}
+        {phase === "step3fast" && (
+          <Step3Fast
+            data={data}
+            setData={setData}
+            back={() => setPhase("response")}
+            onSwitchToManual={() => setPhase("step3")}
+          />
+        )}
       </div>
       <HelpButton />
       <Toaster />
