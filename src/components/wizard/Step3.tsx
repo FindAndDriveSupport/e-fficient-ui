@@ -67,7 +67,13 @@ function capitalise(s?: string) {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardData; setData: (d: WizardData) => void; back: () => void; onSwitchToFast?: () => void }) {
+export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
+  data: WizardData;
+  setData: (d: WizardData) => void;
+  back: () => void;
+  onSwitchToFast?: () => void;
+  onComplete?: () => void;
+}) {
   usePageTimer("Step 3 - Full Application");
   const embed = useEmbed();
   const dealer = useDealer();
@@ -80,7 +86,6 @@ export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardDat
 
   const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => setData({ ...data, [k]: v });
 
-  // Fire once when Step 3 first mounts (start of full application)
   useEffect(() => {
     trackStep3Started();
   }, []);
@@ -162,11 +167,11 @@ export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardDat
     setErrors(null);
     try {
       const payload = buildEdithPayload(data);
-
       const res = await workerApi.createPolicy(payload, dealer.key !== "default" ? dealer.key : embed.dealer);
       const parsed = parseEdithErrors(res);
       if (parsed.isSuccess) {
         setSubmitted({ policyNumber: res.policyNumber, salesRef: res.salesRef });
+        onComplete?.();
         trackStep3SubmitApplicationResult(true, {
           policyNumber: res.policyNumber,
           salesRef: res.salesRef,
@@ -279,7 +284,6 @@ export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardDat
       )}
 
       <Accordion type="multiple" defaultValue={["vehicle", "personal", "address"]} className="space-y-3">
-        {/* Vehicle & Dealership */}
         <Section id="vehicle" title="Vehicle & dealership">
           <FieldRow label="Dealership">
             <TypingInput
@@ -306,7 +310,6 @@ export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardDat
           </Grid2>
         </Section>
 
-        {/* Personal */}
         <Section id="personal" title="Personal details">
           <FieldRow label="Title">
             <SelectInput value={data.title} onChange={(v) => set("title", v)} options={TITLES} />
@@ -366,7 +369,6 @@ export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardDat
           )}
         </Section>
 
-        {/* Address */}
         <Section id="address" title="Residential address">
           <FieldRow label="Street address">
             <Input maxLength={50} value={data.address1} onChange={(e) => set("address1", e.target.value)} />
@@ -391,7 +393,6 @@ export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardDat
           </Grid2>
         </Section>
 
-        {/* NOK */}
         <Section id="nok" title="Next of kin">
           <Grid2>
             <FieldRow label="First name">
@@ -411,7 +412,6 @@ export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardDat
           </FieldRow>
         </Section>
 
-        {/* Employment */}
         <Section id="employment" title="Employment">
           <FieldRow label="Employment status">
             <SelectInput
@@ -464,7 +464,6 @@ export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardDat
           )}
         </Section>
 
-        {/* Financial */}
         <Section id="financial" title="Financial details">
           <CurrencyInput
             label="Gross monthly salary"
@@ -487,7 +486,6 @@ export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardDat
           )}
         </Section>
 
-        {/* Consents */}
         <Section id="consents" title="Consents">
           <CheckboxRow
             checked={data.financialAccessConsent && data.dataAttestation}
@@ -515,7 +513,7 @@ export function Step3({ data, setData, back, onSwitchToFast }: { data: WizardDat
   );
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
