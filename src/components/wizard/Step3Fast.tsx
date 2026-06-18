@@ -18,9 +18,10 @@ interface Props {
   setData: (d: WizardData) => void;
   back: () => void;
   onSwitchToManual: () => void;
+  onComplete?: () => void;
 }
 
-export function Step3Fast({ data, setData, back, onSwitchToManual }: Props) {
+export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }: Props) {
   const embed = useEmbed();
   const dealer = useDealer();
 
@@ -61,7 +62,6 @@ export function Step3Fast({ data, setData, back, onSwitchToManual }: Props) {
     setSubmitting(true);
 
     try {
-      // 1. Create the policy with whatever data we've collected so far
       const payload = buildEdithPayload(data);
       const res = await workerApi.createPolicy(payload, dealer.key !== "default" ? dealer.key : embed.dealer);
 
@@ -75,7 +75,6 @@ export function Step3Fast({ data, setData, back, onSwitchToManual }: Props) {
         return;
       }
 
-      // 2. Submit documents against the new policy
       const documents = [
         ...idDoc.map((f) => ({
           category: data.idType === "Passport" ? "PASSPORT" : "ID DOCUMENT - CLIENT",
@@ -108,14 +107,13 @@ export function Step3Fast({ data, setData, back, onSwitchToManual }: Props) {
         dealer.key !== "default" ? dealer.key : embed.dealer
       );
 
+      setSubmitted({ policyNumber, salesRef: res.salesRef });
+      onComplete?.();
+
       if (docsRes.success) {
-        setSubmitted({ policyNumber, salesRef: res.salesRef });
         trackStep3SubmitApplicationResult(true, { fast: true, policyNumber, salesRef: res.salesRef });
         toast.success("Application submitted");
       } else {
-        // Policy was created but documents failed — still treat as a soft success
-        // since the application itself went through.
-        setSubmitted({ policyNumber, salesRef: res.salesRef });
         trackStep3SubmitApplicationResult(true, {
           fast: true,
           policyNumber,
