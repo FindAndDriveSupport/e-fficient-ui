@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Step1 } from "./Step1";
 import { Step2 } from "./Step2";
 import { LoadingPage } from "./LoadingPage";
@@ -22,10 +22,33 @@ function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
 
 const MIN_LOAN = 60000;
 
+const STORAGE_KEY = `wizard_state_${import.meta.env.VITE_DEFAULT_DEALER || 'default'}`;
+
 export function Wizard() {
-  const [phase, setPhase] = useState<Phase>("step1");
-  const [data, setData] = useState<WizardData>(initialData);
+  const savedState = (() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  })();
+
+  const safePhase = savedState?.phase === "loading" ? "step2" : savedState?.phase;
+
+  const [phase, setPhase] = useState<Phase>(safePhase ?? "step1");
+  const [data, setData] = useState<WizardData>(savedState?.data ?? initialData);
   const embed = useEmbed();
+
+  useEffect(() => {
+    if (phase === "belowMin") {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ phase, data }));
+    } catch { /* storage full or unavailable */ }
+  }, [phase, data]);
+
+  const onComplete = () => localStorage.removeItem(STORAGE_KEY);
 
   const runPrediction = async (currentData: WizardData) => {
     let amount = 0;
@@ -73,8 +96,8 @@ export function Wizard() {
         )}
         {phase === "belowMin" && (
           <BelowMinimumPage
-            onDone={() => setPhase("step1")}
-            onClose={() => setPhase("step1")}
+            onDone={() => { localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
+            onClose={() => { localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
           />
         )}
         {phase === "step3" && (
@@ -83,6 +106,7 @@ export function Wizard() {
             setData={setData}
             back={() => setPhase("response")}
             onSwitchToFast={() => setPhase("step3fast")}
+            onComplete={onComplete}
           />
         )}
         {phase === "step3fast" && (
@@ -91,6 +115,7 @@ export function Wizard() {
             setData={setData}
             back={() => setPhase("response")}
             onSwitchToManual={() => setPhase("step3")}
+            onComplete={onComplete}
           />
         )}
       </div>
