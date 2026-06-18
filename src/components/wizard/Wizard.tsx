@@ -80,7 +80,7 @@ export function Wizard() {
       <div className="mx-auto max-w-xl px-4 py-6 sm:py-10">
         {phase === "step1" && <Step1 data={data} setData={setData} next={() => setPhase("step2")} />}
         {phase === "step2" && (
-          <Step2 data={data} setData={setData} next={() => setPhase("loading" : "step3")} back={() => setPhase("step1")} />
+          <Step2 data={data} setData={setData} next={() => setPhase(data.hasSAID ? "loading" : "step3")} back={() => setPhase("step1")} />
         )}
         {phase === "loading" && <LoadingPage onDone={() => runPrediction(data)} />}
         {phase === "response" && (
