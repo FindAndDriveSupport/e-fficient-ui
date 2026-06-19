@@ -71,6 +71,11 @@ export function Wizard() {
       failed = true;
     } finally {
       if (!failed) {
+        // Treat zero approval amount with zero bureau expenses as a silent bureau failure
+        const silentFailure = amount === 0 && !data.bureauExpenses;
+        if (silentFailure) failed = true;
+      }
+      if (!failed) {
         setPredictionAttempt(0);
         setPhase(amount <= 0 || amount < MIN_LOAN ? "belowMin" : "response");
       } else {
