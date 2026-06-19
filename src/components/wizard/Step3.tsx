@@ -171,22 +171,47 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   })();
 
   const onSubmit = async () => {
-    if (!data.surname.trim()) {
-      toast.error("Last name is required.");
-      return;
-    }
+    // ── Required field validation ──────────────────────────────
+    if (!data.title) { toast.error("Title is required."); return; }
+    if (!data.name.trim()) { toast.error("First name is required."); return; }
+    if (!data.surname.trim()) { toast.error("Last name is required."); return; }
+    if (!data.idNumber.trim()) { toast.error("ID / Passport number is required."); return; }
     if (data.idType === "RSA ID" && data.idNumber) {
       const err = validateSAID(data.idNumber);
       setIdError(err);
       if (err) return;
     }
+    if (!data.mobile.trim()) { toast.error("Mobile number is required."); return; }
+    if (!data.email.trim()) { toast.error("Email address is required."); return; }
+    if (!data.educationLevel) { toast.error("Education level is required."); return; }
+    if (!data.maritalStatus) { toast.error("Marital status is required."); return; }
+    if (isMarried && !data.marriageType) { toast.error("Marriage contract type is required."); return; }
+    if (isMarried && !data.spouseFirstName?.trim()) { toast.error("Spouse first name is required."); return; }
+    if (isMarried && !data.spouseLastName?.trim()) { toast.error("Spouse last name is required."); return; }
+    if (!data.address1.trim()) { toast.error("Street address is required."); return; }
     if (!data.postalLocation) {
       setAddressError("Please select a suburb from the list.");
-      toast.error("Address is required.");
+      toast.error("Suburb / postal code is required.");
       return;
     }
-    if (data.maritalStatus === "Married" && !data.spouseFirstName?.trim()) {
-      toast.error("Spouse details are required for married applicants.");
+    if (!data.residentialStatus) { toast.error("Residential status is required."); return; }
+    if (!data.physicalAddressDate) { toast.error("Date moved in is required."); return; }
+    if (!data.nokFirst.trim()) { toast.error("Next of kin first name is required."); return; }
+    if (!data.nokLast.trim()) { toast.error("Next of kin last name is required."); return; }
+    if (!data.nokContact.trim()) { toast.error("Next of kin contact number is required."); return; }
+    if (!data.employmentType) { toast.error("Employment status is required."); return; }
+    if (!isRetired) {
+      if (!data.employerName.trim()) { toast.error("Employer name is required."); return; }
+      if (!data.salaryDay) { toast.error("Salary day is required."); return; }
+      if (!data.currentEmploymentStartDate) { toast.error("Employment start date is required."); return; }
+      if (!data.occupation) { toast.error("Occupation is required."); return; }
+      if (!data.occupationLevel) { toast.error("Occupation level is required."); return; }
+      if (!data.industry) { toast.error("Industry is required."); return; }
+    }
+    if (!Number(data.confirmGross)) { toast.error("Gross monthly salary is required."); return; }
+    if (!Number(data.confirmNet)) { toast.error("Net salary is required."); return; }
+    if (!data.dataAttestation || !data.financialAccessConsent) {
+      toast.error("Please accept the consent declaration.");
       return;
     }
     setAddressError(null);
