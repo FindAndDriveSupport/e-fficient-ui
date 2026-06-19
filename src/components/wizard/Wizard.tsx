@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
 
-type Phase = "step1" | "step2" | "loading" | "response" | "belowMin" | "step3" | "step3fast";
+type Phase = "step1" | "step2" | "loading" | "loadingFailed" | "response" | "belowMin" | "step3" | "step3fast";
 
 function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
   if (label === "Great news") return "great";
@@ -33,7 +33,7 @@ export function Wizard() {
     } catch { return null; }
   })();
 
-  const safePhase = savedState?.phase === "loading" ? "step2" : savedState?.phase;
+  const safePhase = (savedState?.phase === "loading" || savedState?.phase === "loadingFailed") ? "step2" : savedState?.phase;
 
   const [phase, setPhase] = useState<Phase>(safePhase ?? "step1");
   const [data, setData] = useState<WizardData>(savedState?.data ?? initialData);
@@ -51,6 +51,8 @@ export function Wizard() {
 
   const onComplete = () => localStorage.removeItem(STORAGE_KEY);
 
+  const [predictionAttempt, setPredictionAttempt] = useState(0);
+
   const runPrediction = async (currentData: WizardData) => {
     let amount = 0;
     let failed = false;
@@ -67,12 +69,18 @@ export function Wizard() {
     } catch (e) {
       console.error(e);
       failed = true;
-      toast.error("Our credit check timed out. Please try again.");
     } finally {
       if (!failed) {
+        setPredictionAttempt(0);
         setPhase(amount <= 0 || amount < MIN_LOAN ? "belowMin" : "response");
       } else {
-        setPhase("step2");
+        if (predictionAttempt === 0) {
+          setPredictionAttempt(1);
+          setPhase("loading");
+        } else {
+          setPredictionAttempt(0);
+          setPhase("loadingFailed");
+        }
       }
     }
   };
@@ -84,7 +92,18 @@ export function Wizard() {
         {phase === "step2" && (
           <Step2 data={data} setData={setData} next={() => setPhase("loading")} back={() => setPhase("step1")} />
         )}
-        {phase === "loading" && <LoadingPage onDone={() => runPrediction(data)} />}
+        {phase === "loading" && (
+          <LoadingPage
+            onDone={() => runPrediction(data)}
+            onFailed={() => setPhase("step2")}
+          />
+        )}
+        {phase === "loadingFailed" && (
+          <LoadingPage
+            onDone={() => runPrediction(data)}
+            onFailed={() => setPhase("step2")}
+          />
+        )}
         {phase === "response" && (
           <ResponsePage
             tier={labelToTier(data.predictionLabel)}
