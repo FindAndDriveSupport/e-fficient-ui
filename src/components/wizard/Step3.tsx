@@ -46,14 +46,18 @@ const MARRIAGE_TYPES = [
 const RESIDENTIAL = ["Owner (no bond)", "Owner (bonded)", "Tenant", "Other"];
 const EMPLOYMENT = ["Employed", "Self-employed", "Contract", "Pensioner/Retired"] as const;
 const EDUCATION_LEVELS = [
-  "GRADE 12",
-  "CERTIFICATE",
+  "NO SCHOOLING",
+  "INCOMPLETE PRIMARY",
+  "COMPLETED PRIMARY (GRADE 7)",
+  "GET CERTIFICATE (GRADE 9)",
+  "MATRIC CERTIFICATE (GRADE 12)",
   "DIPLOMA",
   "BACHELORS DEGREE",
+  "POSTGRADUATE DIPLOMA",
   "HONOURS DEGREE",
+  "PROFESSIONAL QUALIFICATION",
   "MASTERS DEGREE",
-  "DOCTORAL DEGREE",
-  "OTHER",
+  "DOCTORATE",
 ];
 
 const EDITH_MAP: Record<string, string> = {
@@ -181,7 +185,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
       toast.error("Address is required.");
       return;
     }
-    if (data.maritalStatus === "Married" && !data.spouseFirstName.trim()) {
+    if (data.maritalStatus === "Married" && !data.spouseFirstName?.trim()) {
       toast.error("Spouse details are required for married applicants.");
       return;
     }
@@ -250,6 +254,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
     !!data.idNumber,
     !!data.mobile,
     !!data.email,
+    !!data.educationLevel,
     !!data.maritalStatus,
     !isMarried || !!data.marriageType,
     !isMarried || !!data.spouseFirstName,
@@ -398,18 +403,18 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
               <FieldRow label="Marriage contract">
                 <SelectInput value={data.marriageType} onChange={(v) => set("marriageType", v)} options={MARRIAGE_TYPES} />
               </FieldRow>
-              <p className="text-xs font-medium text-muted-foreground pt-1">Spouse details</p>
+              <p className="text-xs font-semibold text-foreground pt-1">Spouse details</p>
               <Grid2>
                 <FieldRow label="Spouse first name *">
-                  <Input value={data.spouseFirstName} onChange={(e) => set("spouseFirstName", e.target.value)} />
+                  <Input value={data.spouseFirstName ?? ""} onChange={(e) => set("spouseFirstName", e.target.value)} />
                 </FieldRow>
                 <FieldRow label="Spouse last name *">
-                  <Input value={data.spouseLastName} onChange={(e) => set("spouseLastName", e.target.value)} />
+                  <Input value={data.spouseLastName ?? ""} onChange={(e) => set("spouseLastName", e.target.value)} />
                 </FieldRow>
               </Grid2>
               <FieldRow label="Spouse ID number">
                 <Input
-                  value={data.spouseIdNumber}
+                  value={data.spouseIdNumber ?? ""}
                   inputMode="numeric"
                   maxLength={13}
                   onChange={(e) => set("spouseIdNumber", e.target.value.replace(/\D/g, ""))}
