@@ -13,8 +13,12 @@ export function buildEdithPayload(data: WizardData) {
     idNumber: data.idNumber,
     mobileNumber: data.mobile.replace(/\D/g, ""),
     emailAddress: data.email,
+    educationLevel: data.educationLevel || undefined,
     maritalStatus: data.maritalStatus?.toUpperCase(),
     marriageType: data.maritalStatus === "Married" ? data.marriageType : undefined,
+    spouseFirstName: data.maritalStatus === "Married" ? data.spouseFirstName || undefined : undefined,
+    spouseLastName: data.maritalStatus === "Married" ? data.spouseLastName || undefined : undefined,
+    spouseIdNumber: data.maritalStatus === "Married" ? data.spouseIdNumber || undefined : undefined,
     address1: data.address1,
     postalLocationId: data.postalLocation?.id,
     suburb: data.postalLocation?.suburb,
@@ -47,8 +51,14 @@ export function buildEdithPayload(data: WizardData) {
     vehicleMake: data.vehicleMake,
     vehicleModel: data.vehicleModel,
     vehicleMm: data.vehicleMm,
-    estimatedApprovalAmount: data.estimatedApprovalAmount,
+    estimatedApprovalAmount: data.estimatedApprovalAmount ??
+      (data.idType !== "RSA ID" ? Number(data.preQualTotal) || undefined : undefined),
+    preQualTotal: data.preQualTotal,
     applicantId: data.applicantId,
+    bankBranchCode: data.bankBranchCode || undefined,
+    bankName: data.bankName || undefined,
+    accountType: data.accountType || undefined,
+    bankAccountNumber: data.bankAccountNumber || undefined,
   };
 }
 
