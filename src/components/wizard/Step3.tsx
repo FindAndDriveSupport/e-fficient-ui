@@ -517,7 +517,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <AccordionItem value={id} className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)]">
+    <AccordionItem value={id} className="overflow-visible rounded-2xl border border-border bg-card shadow-[var(--shadow-soft)]">
       <AccordionTrigger className="px-5 py-4 hover:no-underline">
         <span className="text-left text-sm font-semibold">{title}</span>
       </AccordionTrigger>
