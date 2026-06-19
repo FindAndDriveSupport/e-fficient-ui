@@ -150,14 +150,14 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
 
   // Pre-fill NOK with spouse details when married
   useEffect(() => {
-    if (data.maritalStatus === "Married" && data.spouseFirstName && !data.nokFirst) {
-      setData({
-        ...data,
-        nokFirst: data.spouseFirstName,
-        nokLast: data.spouseLastName,
-      });
-    }
-  }, [data.maritalStatus, data.spouseFirstName, data.spouseLastName]);
+  if (data.maritalStatus === "Married" && data.spouseFirstName) {
+    setData({
+      ...data,
+      nokFirst: data.spouseFirstName,
+      nokLast: data.spouseLastName,
+    });
+  }
+}, [data.spouseFirstName, data.spouseLastName]);
 
   const errorByField = (() => {
     if (!errors) return {} as Record<string, { title: string; message: string; action: string }>;
