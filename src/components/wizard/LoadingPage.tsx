@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import experianLogo from "@/assets/experian_idfKXIhI6C_0.png";;
+import experianLogo from "@/assets/experian_idfKXIhI6C_0.png";
 
 const STEPS = [
   "Fetching your affordability information…",
@@ -8,23 +8,81 @@ const STEPS = [
   "Finalising results…",
 ];
 
-export function LoadingPage({ onDone }: { onDone: () => void }) {
-  const [i, setI] = useState(0);
+type LoadingPhase = "loading" | "retrying" | "failed";
 
+export function LoadingPage({ onDone, onFailed }: { onDone: () => void; onFailed: () => void }) {
+  const [i, setI] = useState(0);
+  const [phase, setPhase] = useState<LoadingPhase>("loading");
+
+  // First attempt — step through loading steps then call onDone
   useEffect(() => {
+    if (phase !== "loading") return;
     const t = setInterval(() => setI((p) => {
       if (p >= STEPS.length) return p;
       return p + 1;
     }), 900);
     return () => clearInterval(t);
-  }, []);
+  }, [phase]);
 
   useEffect(() => {
+    if (phase !== "loading") return;
     if (i >= STEPS.length) {
       const t = setTimeout(onDone, 600);
       return () => clearTimeout(t);
     }
-  }, [i, onDone]);
+  }, [i, onDone, phase]);
+
+  if (phase === "retrying") {
+    return (
+      <div className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center">
+        <div className="relative mb-8">
+          <div className="absolute inset-0 animate-ping rounded-full opacity-30" style={{ backgroundImage: "var(--gradient-primary)" }} />
+          <div
+            className="relative flex h-24 w-24 items-center justify-center rounded-full text-primary-foreground shadow-[var(--shadow-elegant)]"
+            style={{ backgroundImage: "var(--gradient-primary)" }}
+          >
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+          </div>
+        </div>
+        <h2 className="text-xl font-bold">Trying again…</h2>
+        <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+          We didn't retrieve any information from the credit bureau so we're trying again.
+        </p>
+        <p className="mt-4 text-xs text-muted-foreground">
+          A soft credit check does not affect your credit score.
+        </p>
+        <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Credit bureau partner</span>
+          <img src={experianLogo} alt="Experian" className="h-8" />
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "failed") {
+    return (
+      <div className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center">
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+          <span className="text-3xl">✕</span>
+        </div>
+        <h2 className="text-xl font-bold">Credit check unsuccessful</h2>
+        <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+          We were unable to retrieve your credit information. Please check that your ID number is correct and try again.
+        </p>
+        <button
+          onClick={onFailed}
+          className="mt-6 rounded-xl px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)]"
+          style={{ backgroundImage: "var(--gradient-primary)" }}
+        >
+          Check my ID and try again
+        </button>
+        <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Credit bureau partner</span>
+          <img src={experianLogo} alt="Experian" className="h-8" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center">
