@@ -36,6 +36,12 @@ export interface WizardData {
   email: string;
   maritalStatus: string;
   marriageType: string;
+  educationLevel: string;
+
+  // Step 3 — Spouse (required if married)
+  spouseFirstName: string;
+  spouseLastName: string;
+  spouseIdNumber: string;
 
   // Step 3 — Address
   address1: string;
@@ -74,6 +80,12 @@ export interface WizardData {
   vehicleMm?: string;
   dealership?: string;
 
+  // Banking (bike only)
+  bankName?: string;
+  bankBranchCode?: string;
+  accountType?: string;
+  bankAccountNumber?: string;
+
   [k: string]: unknown;
 }
 
@@ -100,6 +112,11 @@ export const initialData: WizardData = {
   email: "",
   maritalStatus: "",
   marriageType: "",
+  educationLevel: "",
+
+  spouseFirstName: "",
+  spouseLastName: "",
+  spouseIdNumber: "",
 
   address1: "",
   postalLocation: null,
@@ -126,4 +143,13 @@ export const initialData: WizardData = {
   dataAttestation: false,
   financialAccessConsent: false,
   marketingConsent: false,
+
+  spouseFirstName: "",
+  spouseLastName: "",
+  spouseIdNumber: "",
+
+  bankName: "",
+  bankBranchCode: "",
+  accountType: "",
+  bankAccountNumber: "",
 };
