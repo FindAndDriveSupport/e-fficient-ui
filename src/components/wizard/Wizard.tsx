@@ -9,6 +9,7 @@ import { Step3Fast } from "./Step3Fast";
 import { HelpButton } from "./HelpButton";
 import { initialData, type WizardData } from "./types";
 import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
 
@@ -66,6 +67,7 @@ export function Wizard() {
     } catch (e) {
       console.error(e);
       failed = true;
+      toast.error("Our credit check timed out. Please try again.");
     } finally {
       if (!failed) {
         setPhase(amount <= 0 || amount < MIN_LOAN ? "belowMin" : "response");
@@ -80,7 +82,7 @@ export function Wizard() {
       <div className="mx-auto max-w-xl px-4 py-6 sm:py-10">
         {phase === "step1" && <Step1 data={data} setData={setData} next={() => setPhase("step2")} />}
         {phase === "step2" && (
-          <Step2 data={data} setData={setData} next={() => setPhase(data.hasSAID ? "loading" : "step3")} back={() => setPhase("step1")} />
+          <Step2 data={data} setData={setData} next={() => setPhase("loading")} back={() => setPhase("step1")} />
         )}
         {phase === "loading" && <LoadingPage onDone={() => runPrediction(data)} />}
         {phase === "response" && (
