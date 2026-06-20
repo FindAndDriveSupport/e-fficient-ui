@@ -86,7 +86,15 @@ async function call<T>(path: string, init: RequestInit, dealerKey?: string, mock
     ...init,
     headers: { ...headers(dealerKey), ...(init.headers || {}) },
   });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  if (!res.ok) {
+    let body: any = {};
+    try { body = await res.json(); } catch { /* ignore */ }
+    const err: any = new Error(`Request failed: ${res.status}`);
+    err.status = res.status;
+    err.systemDown = body?.systemDown ?? false;
+    err.code = body?.code ?? res.status;
+    throw err;
+  }
   return (await res.json()) as T;
 }
 
