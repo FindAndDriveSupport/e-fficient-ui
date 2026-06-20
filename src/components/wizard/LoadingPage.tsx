@@ -10,7 +10,7 @@ const STEPS = [
 
 type LoadingPhase = "loading" | "retrying" | "failed";
 
-export function LoadingPage({ onDone, onFailed }: { onDone: () => void; onFailed: () => void }) {
+export function LoadingPage({ onDone, onFailed, onProceed }: { onDone: () => void; onFailed: () => void; onProceed: () => void }) {
   const [i, setI] = useState(0);
   const [phase, setPhase] = useState<LoadingPhase>("loading");
 
@@ -75,6 +75,12 @@ export function LoadingPage({ onDone, onFailed }: { onDone: () => void; onFailed
           style={{ backgroundImage: "var(--gradient-primary)" }}
         >
           Check my ID and try again
+        </button>
+        <button
+          onClick={onProceed}
+          className="mt-3 rounded-xl px-6 py-3 text-sm font-semibold border border-border bg-background text-foreground hover:bg-muted"
+        >
+          Continue to application
         </button>
         <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
           <span>Credit bureau partner</span>
