@@ -6,6 +6,7 @@ import { ResponsePage, type ResponseTier } from "./ResponsePage";
 import { BelowMinimumPage } from "./BelowMinimumPage";
 import { Step3 } from "./Step3";
 import { Step3Fast } from "./Step3Fast";
+import { SystemDownPage } from "./SystemDownPage";
 import { HelpButton } from "./HelpButton";
 import { initialData, type WizardData } from "./types";
 import { Toaster } from "@/components/ui/sonner";
@@ -13,7 +14,7 @@ import { toast } from "sonner";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
 
-type Phase = "step1" | "step2" | "loading" | "loadingFailed" | "response" | "belowMin" | "step3" | "step3fast";
+type Phase = "step1" | "step2" | "loading" | "loadingFailed" | "systemDown" | "response" | "belowMin" | "step3" | "step3fast";
 
 function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
   if (label === "Great news") return "great";
@@ -33,7 +34,7 @@ export function Wizard() {
     } catch { return null; }
   })();
 
-  const safePhase = (savedState?.phase === "loading" || savedState?.phase === "loadingFailed") ? "step2" : savedState?.phase;
+  const safePhase = (savedState?.phase === "loading" || savedState?.phase === "loadingFailed" || savedState?.phase === "systemDown") ? "step2" : savedState?.phase;
 
   const [phase, setPhase] = useState<Phase>(safePhase ?? "step1");
   const [data, setData] = useState<WizardData>(savedState?.data ?? initialData);
@@ -66,8 +67,13 @@ export function Wizard() {
         estimatedApprovalAmount: res.estimatedApprovalAmount,
         monthlyInstalment: res.monthlyInstalment,
       }));
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      // Check if response body indicates system down
+      if (e?.systemDown || e?.code === 502) {
+        setPhase("systemDown");
+        return;
+      }
       failed = true;
     } finally {
       if (!failed) {
@@ -108,6 +114,9 @@ export function Wizard() {
             onDone={() => runPrediction(data)}
             onFailed={() => setPhase("step2")}
           />
+        )}
+        {phase === "systemDown" && (
+          <SystemDownPage onRetry={() => setPhase("step2")} />
         )}
         {phase === "response" && (
           <ResponsePage
