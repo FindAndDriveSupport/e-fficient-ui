@@ -107,12 +107,14 @@ export function Wizard() {
           <LoadingPage
             onDone={() => runPrediction(data)}
             onFailed={() => setPhase("step2")}
+            onProceed={() => setPhase("step3")}
           />
         )}
         {phase === "loadingFailed" && (
           <LoadingPage
             onDone={() => runPrediction(data)}
             onFailed={() => setPhase("step2")}
+            onProceed={() => setPhase("step3")}
           />
         )}
         {phase === "systemDown" && (
