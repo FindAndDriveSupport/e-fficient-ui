@@ -5,6 +5,7 @@ import type { WizardData } from "./types";
  * Shared between Step3 (Manual) and Step3Fast.
  */
 export function buildEdithPayload(data: WizardData) {
+  const isMarried = data.maritalStatus === "Married";
   return {
     title: data.title?.toUpperCase(),
     firstName: data.name,
@@ -15,10 +16,12 @@ export function buildEdithPayload(data: WizardData) {
     emailAddress: data.email,
     educationLevel: data.educationLevel || undefined,
     maritalStatus: data.maritalStatus?.toUpperCase(),
-    marriageType: data.maritalStatus === "Married" ? data.marriageType : undefined,
-    spouseFirstName: data.maritalStatus === "Married" ? data.spouseFirstName || undefined : undefined,
-    spouseLastName: data.maritalStatus === "Married" ? data.spouseLastName || undefined : undefined,
-    spouseIdNumber: data.maritalStatus === "Married" ? data.spouseIdNumber || undefined : undefined,
+    marriageType: isMarried ? data.marriageType || undefined : undefined,
+    marriageDate: isMarried ? data.marriageDate || undefined : undefined,
+    spouseFirstName: isMarried ? data.spouseFirstName || undefined : undefined,
+    spouseLastName: isMarried ? data.spouseLastName || undefined : undefined,
+    spouseIdNumber: isMarried ? data.spouseIdNumber || undefined : undefined,
+    spouseIdType: isMarried ? (data.spouseIdType || "RSA ID") : undefined,
     address1: data.address1,
     postalLocationId: data.postalLocation?.id,
     suburb: data.postalLocation?.suburb,
