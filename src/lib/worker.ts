@@ -92,10 +92,18 @@ async function call<T>(path: string, init: RequestInit, dealerKey?: string, mock
     const err: any = new Error(`Request failed: ${res.status}`);
     err.status = res.status;
     err.systemDown = body?.systemDown ?? false;
+    err.idasFailed = body?.idasFailed ?? false;
     err.code = body?.code ?? res.status;
     throw err;
   }
-  return (await res.json()) as T;
+  const json = await res.json() as any;
+  // Handle idasFailed returned as 200
+  if (json?.idasFailed) {
+    const err: any = new Error('IDAS bureau failure');
+    err.idasFailed = true;
+    throw err;
+  }
+  return json as T;
 }
 
 export const workerApi = {
