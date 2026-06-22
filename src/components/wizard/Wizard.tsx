@@ -7,6 +7,7 @@ import { BelowMinimumPage } from "./BelowMinimumPage";
 import { Step3 } from "./Step3";
 import { Step3Fast } from "./Step3Fast";
 import { SystemDownPage } from "./SystemDownPage";
+import { IDNotFoundPage } from "./IDNotFoundPage";
 import { HelpButton } from "./HelpButton";
 import { initialData, type WizardData } from "./types";
 import { Toaster } from "@/components/ui/sonner";
@@ -14,7 +15,7 @@ import { toast } from "sonner";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
 
-type Phase = "step1" | "step2" | "loading" | "loadingFailed" | "systemDown" | "response" | "belowMin" | "step3" | "step3fast";
+type Phase = "step1" | "step2" | "loading" | "loadingFailed" | "systemDown" | "idasFailed" | "response" | "belowMin" | "step3" | "step3fast";
 
 function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
   if (label === "Great news") return "great";
@@ -34,7 +35,7 @@ export function Wizard() {
     } catch { return null; }
   })();
 
-  const safePhase = (savedState?.phase === "loading" || savedState?.phase === "loadingFailed" || savedState?.phase === "systemDown") ? "step2" : savedState?.phase;
+  const safePhase = (savedState?.phase === "loading" || savedState?.phase === "loadingFailed" || savedState?.phase === "systemDown" || savedState?.phase === "idasFailed") ? "step2" : savedState?.phase;
 
   const [phase, setPhase] = useState<Phase>(safePhase ?? "step1");
   const [data, setData] = useState<WizardData>(savedState?.data ?? initialData);
@@ -70,6 +71,10 @@ export function Wizard() {
     } catch (e: any) {
       console.error(e);
       // Check if response body indicates system down
+      if (e?.idasFailed) {
+        setPhase("idasFailed");
+        return;
+      }
       if (e?.systemDown || e?.code === 502) {
         setPhase("systemDown");
         return;
@@ -119,6 +124,12 @@ export function Wizard() {
         )}
         {phase === "systemDown" && (
           <SystemDownPage onRetry={() => setPhase("step2")} />
+        )}
+        {phase === "idasFailed" && (
+          <IDNotFoundPage
+            onRetry={() => { setData((d) => ({ ...d, idNumber: "" })); setPhase("step2"); }}
+            onProceed={() => setPhase("step3")}
+          />
         )}
         {phase === "response" && (
           <ResponsePage
