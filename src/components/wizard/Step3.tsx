@@ -150,14 +150,14 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
 
   // Pre-fill NOK with spouse details when married
   useEffect(() => {
-  if (data.maritalStatus === "Married" && data.spouseFirstName) {
-    setData({
-      ...data,
-      nokFirst: data.spouseFirstName,
-      nokLast: data.spouseLastName,
-    });
-  }
-}, [data.spouseFirstName, data.spouseLastName]);
+    if (data.maritalStatus === "Married" && data.spouseFirstName) {
+      setData({
+        ...data,
+        nokFirst: data.spouseFirstName,
+        nokLast: data.spouseLastName,
+      });
+    }
+  }, [data.spouseFirstName, data.spouseLastName]);
 
   const errorByField = (() => {
     if (!errors) return {} as Record<string, { title: string; message: string; action: string }>;
@@ -171,7 +171,6 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   })();
 
   const onSubmit = async () => {
-    // ── Required field validation ──────────────────────────────
     if (!data.title) { toast.error("Title is required."); return; }
     if (!data.name.trim()) { toast.error("First name is required."); return; }
     if (!data.surname.trim()) { toast.error("Last name is required."); return; }
@@ -186,6 +185,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
     if (!data.educationLevel) { toast.error("Education level is required."); return; }
     if (!data.maritalStatus) { toast.error("Marital status is required."); return; }
     if (isMarried && !data.marriageType) { toast.error("Marriage contract type is required."); return; }
+    if (isMarried && !data.marriageDate) { toast.error("Marriage date is required."); return; }
     if (isMarried && !data.spouseFirstName?.trim()) { toast.error("Spouse first name is required."); return; }
     if (isMarried && !data.spouseLastName?.trim()) { toast.error("Spouse last name is required."); return; }
     if (!data.address1.trim()) { toast.error("Street address is required."); return; }
@@ -282,6 +282,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
     !!data.educationLevel,
     !!data.maritalStatus,
     !isMarried || !!data.marriageType,
+    !isMarried || !!data.marriageDate,
     !isMarried || !!data.spouseFirstName,
     !isMarried || !!data.spouseLastName,
     !!data.address1,
@@ -425,9 +426,20 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
           </FieldRow>
           {isMarried && (
             <>
-              <FieldRow label="Marriage contract">
-                <SelectInput value={data.marriageType} onChange={(v) => set("marriageType", v)} options={MARRIAGE_TYPES} />
-              </FieldRow>
+              <Grid2>
+                <FieldRow label="Marriage contract *">
+                  <SelectInput value={data.marriageType} onChange={(v) => set("marriageType", v)} options={MARRIAGE_TYPES} />
+                </FieldRow>
+                <FieldRow label="Marriage date *">
+                  <Input
+                    type="date"
+                    value={data.marriageDate ?? ""}
+                    max={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => set("marriageDate", e.target.value)}
+                    className="pr-3 [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:mr-0 [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  />
+                </FieldRow>
+              </Grid2>
               <p className="text-xs font-semibold text-foreground pt-1">Spouse details</p>
               <Grid2>
                 <FieldRow label="Spouse first name *">
@@ -437,14 +449,28 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
                   <Input value={data.spouseLastName ?? ""} onChange={(e) => set("spouseLastName", e.target.value)} />
                 </FieldRow>
               </Grid2>
-              <FieldRow label="Spouse ID number">
-                <Input
-                  value={data.spouseIdNumber ?? ""}
-                  inputMode="numeric"
-                  maxLength={13}
-                  onChange={(e) => set("spouseIdNumber", e.target.value.replace(/\D/g, ""))}
-                />
-              </FieldRow>
+              <Grid2>
+                <FieldRow label="Spouse ID type">
+                  <SelectInput
+                    value={data.spouseIdType ?? "RSA ID"}
+                    onChange={(v) => set("spouseIdType", v)}
+                    options={["RSA ID", "Passport", "Other ID"]}
+                  />
+                </FieldRow>
+                <FieldRow label="Spouse ID number">
+                  <Input
+                    value={data.spouseIdNumber ?? ""}
+                    inputMode={(data.spouseIdType ?? "RSA ID") === "RSA ID" ? "numeric" : "text"}
+                    maxLength={(data.spouseIdType ?? "RSA ID") === "RSA ID" ? 13 : 30}
+                    onChange={(e) => {
+                      const v = (data.spouseIdType ?? "RSA ID") === "RSA ID"
+                        ? e.target.value.replace(/\D/g, "")
+                        : e.target.value;
+                      set("spouseIdNumber", v);
+                    }}
+                  />
+                </FieldRow>
+              </Grid2>
             </>
           )}
         </Section>
