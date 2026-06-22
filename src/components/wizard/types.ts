@@ -36,18 +36,20 @@ export interface WizardData {
   email: string;
   maritalStatus: string;
   marriageType: string;
+  marriageDate: string;
   educationLevel: string;
 
   // Step 3 — Spouse (required if married)
   spouseFirstName: string;
   spouseLastName: string;
   spouseIdNumber: string;
+  spouseIdType: string;
 
   // Step 3 — Address
   address1: string;
   postalLocation: PostalLocation | null;
   residentialStatus: string;
-  physicalAddressDate: string; // ISO yyyy-mm-dd
+  physicalAddressDate: string;
 
   // Step 3 — Next of kin
   nokFirst: string;
@@ -112,11 +114,13 @@ export const initialData: WizardData = {
   email: "",
   maritalStatus: "",
   marriageType: "",
+  marriageDate: "",
   educationLevel: "",
 
   spouseFirstName: "",
   spouseLastName: "",
   spouseIdNumber: "",
+  spouseIdType: "RSA ID",
 
   address1: "",
   postalLocation: null,
@@ -143,10 +147,6 @@ export const initialData: WizardData = {
   dataAttestation: false,
   financialAccessConsent: false,
   marketingConsent: false,
-
-  spouseFirstName: "",
-  spouseLastName: "",
-  spouseIdNumber: "",
 
   bankName: "",
   bankBranchCode: "",
