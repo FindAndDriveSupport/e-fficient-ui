@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
 
-type Phase = "step1" | "step2" | "loading" | "loadingFailed" | "systemDown" | "idasFailed" | "response" | "belowMin" | "step3" | "step3fast";
+type Phase = "step1" | "step2" | "loading" | "systemDown" | "idasFailed" | "response" | "belowMin" | "step3" | "step3fast";
 
 function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
   if (label === "Great news") return "great";
@@ -70,33 +70,34 @@ export function Wizard() {
       }));
     } catch (e: any) {
       console.error(e);
-      // Check if response body indicates system down
       if (e?.idasFailed) {
+        setPredictionAttempt(0);
         setPhase("idasFailed");
         return;
       }
       if (e?.systemDown || e?.code === 502) {
+        setPredictionAttempt(0);
         setPhase("systemDown");
         return;
       }
       failed = true;
-    } finally {
-      if (!failed) {
-        // Treat zero approval amount with zero bureau expenses as a silent bureau failure
-        const silentFailure = amount === 0 && !data.bureauExpenses;
-        if (silentFailure) failed = true;
-      }
-      if (!failed) {
-        setPredictionAttempt(0);
-        setPhase(amount <= 0 || amount < MIN_LOAN ? "belowMin" : "response");
+    }
+
+    if (!failed) {
+      const silentFailure = amount === 0 && !data.bureauExpenses;
+      if (silentFailure) failed = true;
+    }
+
+    if (!failed) {
+      setPredictionAttempt(0);
+      setPhase(amount <= 0 || amount < MIN_LOAN ? "belowMin" : "response");
+    } else {
+      if (predictionAttempt === 0) {
+        setPredictionAttempt(1);
+        // Stay on loading phase — LoadingPage shows retrying state via attempt prop
       } else {
-        if (predictionAttempt === 0) {
-          setPredictionAttempt(1);
-          setPhase("loading");
-        } else {
-          setPredictionAttempt(0);
-          setPhase("loadingFailed");
-        }
+        setPredictionAttempt(2);
+        // LoadingPage shows failed state via attempt prop
       }
     }
   };
@@ -110,16 +111,10 @@ export function Wizard() {
         )}
         {phase === "loading" && (
           <LoadingPage
+            attempt={predictionAttempt}
             onDone={() => runPrediction(data)}
-            onFailed={() => setPhase("step2")}
-            onProceed={() => setPhase("step3")}
-          />
-        )}
-        {phase === "loadingFailed" && (
-          <LoadingPage
-            onDone={() => runPrediction(data)}
-            onFailed={() => setPhase("step2")}
-            onProceed={() => setPhase("step3")}
+            onFailed={() => { setPredictionAttempt(0); setPhase("step2"); }}
+            onProceed={() => { setPredictionAttempt(0); setPhase("step3"); }}
           />
         )}
         {phase === "systemDown" && (
