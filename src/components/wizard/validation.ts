@@ -1,18 +1,27 @@
 export function repeatedDigits(number: string) {
   const digits = number.replace(/\D/g, "");
-  return /^(\d)\1+$/.test(digits);
+  // All same digits e.g. 0000000000
+  if (/^(\d)\1+$/.test(digits)) return true;
+  // 6 or more consecutive same digits e.g. 0738888888
+  if (/(\d)\1{5,}/.test(digits)) return true;
+  // Valid prefix followed by 6+ zeros e.g. 0700000001
+  if (/^0\d{2}0{6,}/.test(digits)) return true;
+  return false;
 }
 
 const fakePatterns = ["0123456789", "1234567890", "0987654321", "9876543210"];
 
 export function sequential(number: string) {
   const digits = number.replace(/\D/g, "");
-  return fakePatterns.some((p) => digits.includes(p));
+  if (fakePatterns.some((p) => digits.includes(p))) return true;
+  // Incremental patterns in the subscriber portion e.g. 0821234567
+  if (/0123|1234|2345|3456|4567|5678|6789/.test(digits.slice(3))) return true;
+  return false;
 }
 
 const validPrefixes = [
-  "060", "061", "062", "063", "064", "065", "066", "067", "068",
-  "071", "072", "073", "074", "076", "078", "079",
+  "060", "061", "062", "063", "064", "065", "066", "067", "068", "069",
+  "071", "072", "073", "074", "076", "077", "078", "079",
   "081", "082", "083", "084",
 ];
 
@@ -48,7 +57,7 @@ export function parseThousands(value: string): number | "" {
 
 /**
  * South African ID number validation. Returns null when valid, else a
- * user-facing error message. Validation order matches Phase 4 spec.
+ * user-facing error message.
  */
 export function validateSAID(id: string): string | null {
   if (!id || id.length !== 13) return "ID number must be exactly 13 digits.";
@@ -58,7 +67,12 @@ export function validateSAID(id: string): string | null {
   const yy = parseInt(id.substring(0, 2), 10);
   const mm = parseInt(id.substring(2, 4), 10);
   const dd = parseInt(id.substring(4, 6), 10);
-  const fullYear = yy <= new Date().getFullYear() % 100 ? 2000 + yy : 1900 + yy;
+  const currentYear = new Date().getFullYear();
+  const fullYear = yy <= currentYear % 100 ? 2000 + yy : 1900 + yy;
+
+  // Future date check
+  if (fullYear > currentYear) return "ID number contains an invalid date of birth.";
+
   const date = new Date(fullYear, mm - 1, dd);
   const dateValid =
     date.getFullYear() === fullYear &&
@@ -66,6 +80,12 @@ export function validateSAID(id: string): string | null {
     date.getDate() === dd;
   if (!dateValid) return "ID number contains an invalid date of birth.";
 
+  // Age checks
+  const age = currentYear - fullYear;
+  if (age < 18) return "You must be 18 or older to apply.";
+  if (age > 80) return "Please check your ID number.";
+
+  // Luhn check
   let sumOdd = 0;
   for (let i = 0; i < 12; i += 2) sumOdd += parseInt(id[i], 10);
   let evenDigits = "";
