@@ -10,11 +10,19 @@ const STEPS = [
 
 type LoadingPhase = "loading" | "retrying" | "failed";
 
-export function LoadingPage({ onDone, onFailed, onProceed }: { onDone: () => void; onFailed: () => void; onProceed: () => void }) {
-  const [i, setI] = useState(0);
-  const [phase, setPhase] = useState<LoadingPhase>("loading");
+interface LoadingPageProps {
+  onDone: () => void;
+  onFailed: () => void;
+  onProceed: () => void;
+  attempt?: number; // 0 = first attempt, 1 = retrying, 2+ = failed
+}
 
-  // First attempt — step through loading steps then call onDone
+export function LoadingPage({ onDone, onFailed, onProceed, attempt = 0 }: LoadingPageProps) {
+  const [i, setI] = useState(0);
+  const initialPhase: LoadingPhase = attempt === 0 ? "loading" : attempt === 1 ? "retrying" : "failed";
+  const [phase, setPhase] = useState<LoadingPhase>(initialPhase);
+
+  // Step through loading steps then call onDone — only on first attempt
   useEffect(() => {
     if (phase !== "loading") return;
     const t = setInterval(() => setI((p) => {
@@ -31,6 +39,13 @@ export function LoadingPage({ onDone, onFailed, onProceed }: { onDone: () => voi
       return () => clearTimeout(t);
     }
   }, [i, onDone, phase]);
+
+  // On retrying phase — auto-trigger retry after brief delay
+  useEffect(() => {
+    if (phase !== "retrying") return;
+    const t = setTimeout(onDone, 2000);
+    return () => clearTimeout(t);
+  }, [phase, onDone]);
 
   if (phase === "retrying") {
     return (
