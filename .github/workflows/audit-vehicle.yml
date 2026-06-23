@@ -1,0 +1,277 @@
+name: Code Audit — Vehicle
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── worker.ts ────────────────────────────────────────────
+
+      - name: "[worker.ts] systemDown error propagation present"
+        run: |
+          if ! grep -q "systemDown" src/lib/worker.ts; then
+            echo "❌ Missing systemDown in worker.ts" && exit 1
+          fi
+
+      - name: "[worker.ts] idasFailed error propagation present"
+        run: |
+          if ! grep -q "idasFailed" src/lib/worker.ts; then
+            echo "❌ Missing idasFailed in worker.ts" && exit 1
+          fi
+
+      - name: "[worker.ts] reads body before throwing"
+        run: |
+          if ! grep -q "res.json" src/lib/worker.ts; then
+            echo "❌ worker.ts not reading body before throwing" && exit 1
+          fi
+
+      - name: "[worker.ts] 422 not thrown"
+        run: |
+          if ! grep -q "status !== 422" src/lib/worker.ts; then
+            echo "❌ worker.ts should not throw on 422" && exit 1
+          fi
+
+      - name: "[worker.ts] manualFollowUp in PolicyResponse"
+        run: |
+          if ! grep -q "manualFollowUp" src/lib/worker.ts; then
+            echo "❌ Missing manualFollowUp in PolicyResponse" && exit 1
+          fi
+
+      # ── logEvent.ts ──────────────────────────────────────────
+
+      - name: "[logEvent] file exists"
+        run: |
+          if [ ! -f "src/lib/logEvent.ts" ]; then
+            echo "❌ logEvent.ts missing" && exit 1
+          fi
+
+      - name: "[logEvent] fire and forget pattern present"
+        run: |
+          if ! grep -q "catch(() => {})" src/lib/logEvent.ts; then
+            echo "❌ Missing fire-and-forget catch in logEvent.ts" && exit 1
+          fi
+
+      # ── types.ts ─────────────────────────────────────────────
+
+      - name: "[types.ts] marriageDate present"
+        run: |
+          if ! grep -q "marriageDate" src/components/wizard/types.ts; then
+            echo "❌ Missing marriageDate in types.ts" && exit 1
+          fi
+
+      - name: "[types.ts] spouseIdType present"
+        run: |
+          if ! grep -q "spouseIdType" src/components/wizard/types.ts; then
+            echo "❌ Missing spouseIdType in types.ts" && exit 1
+          fi
+
+      - name: "[types.ts] marriageType present"
+        run: |
+          if ! grep -q "marriageType" src/components/wizard/types.ts; then
+            echo "❌ Missing marriageType in types.ts" && exit 1
+          fi
+
+      # ── edithPayload.ts ──────────────────────────────────────
+
+      - name: "[edithPayload.ts] marriageDate mapped"
+        run: |
+          if ! grep -q "marriageDate" src/components/wizard/edithPayload.ts; then
+            echo "❌ Missing marriageDate in edithPayload.ts" && exit 1
+          fi
+
+      - name: "[edithPayload.ts] spouseIdType mapped"
+        run: |
+          if ! grep -q "spouseIdType" src/components/wizard/edithPayload.ts; then
+            echo "❌ Missing spouseIdType in edithPayload.ts" && exit 1
+          fi
+
+      # ── Step3.tsx ────────────────────────────────────────────
+
+      - name: "[Step3] marriageDate field present"
+        run: |
+          if ! grep -q "marriageDate" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing marriageDate field in Step3.tsx" && exit 1
+          fi
+
+      - name: "[Step3] spouseIdType field present"
+        run: |
+          if ! grep -q "spouseIdType" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing spouseIdType field in Step3.tsx" && exit 1
+          fi
+
+      - name: "[Step3] marriage date validation present"
+        run: |
+          if ! grep -q "Marriage date is required" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing marriage date validation in Step3.tsx" && exit 1
+          fi
+
+      - name: "[Step3] manualFollowUp handled"
+        run: |
+          if ! grep -q "manualFollowUp" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing manualFollowUp handling in Step3.tsx" && exit 1
+          fi
+
+      - name: "[Step3] logEvent imported"
+        run: |
+          if ! grep -q "logEvent" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing logEvent import in Step3.tsx" && exit 1
+          fi
+
+      - name: "[Step3] form abandonment tracking present"
+        run: |
+          if ! grep -q "form_abandoned" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing form_abandoned log in Step3.tsx" && exit 1
+          fi
+
+      - name: "[Step3] policy submission failure tracking present"
+        run: |
+          if ! grep -q "policy_submission_failed" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing policy_submission_failed log in Step3.tsx" && exit 1
+          fi
+
+      - name: "[Step3] submittedRef present"
+        run: |
+          if ! grep -q "submittedRef" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing submittedRef in Step3.tsx" && exit 1
+          fi
+
+      # ── Wizard.tsx ───────────────────────────────────────────
+
+      - name: "[Wizard] attempt prop passed to LoadingPage"
+        run: |
+          if ! grep -q "attempt={predictionAttempt}" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing attempt prop in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] idasFailed phase present"
+        run: |
+          if ! grep -q "idasFailed" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing idasFailed phase in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] systemDown phase present"
+        run: |
+          if ! grep -q "systemDown" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing systemDown phase in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] no loadingFailed phase"
+        run: |
+          if grep -q '"loadingFailed"' src/components/wizard/Wizard.tsx; then
+            echo "❌ Old loadingFailed phase still present in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] useCallback used for onLoadingDone"
+        run: |
+          if ! grep -q "onLoadingDone" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing onLoadingDone useCallback fix in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] hasSAID check for passport users"
+        run: |
+          if ! grep -q "hasSAID" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing hasSAID check in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] MIN_LOAN is 60000"
+        run: |
+          if ! grep -q "MIN_LOAN = 60000" src/components/wizard/Wizard.tsx; then
+            echo "❌ MIN_LOAN should be 60000 for vehicle in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] logEvent imported"
+        run: |
+          if ! grep -q "logEvent" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing logEvent import in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] idas_failure logged"
+        run: |
+          if ! grep -q "idas_failure" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing idas_failure log in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] prediction_retries_exhausted logged"
+        run: |
+          if ! grep -q "prediction_retries_exhausted" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing prediction_retries_exhausted log in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] below_minimum_loan logged"
+        run: |
+          if ! grep -q "below_minimum_loan" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing below_minimum_loan log in Wizard.tsx" && exit 1
+          fi
+
+      # ── IDNotFoundPage.tsx ───────────────────────────────────
+
+      - name: "[IDNotFoundPage] file exists"
+        run: |
+          if [ ! -f "src/components/wizard/IDNotFoundPage.tsx" ]; then
+            echo "❌ IDNotFoundPage.tsx missing" && exit 1
+          fi
+
+      # ── SystemDownPage.tsx ───────────────────────────────────
+
+      - name: "[SystemDownPage] file exists"
+        run: |
+          if [ ! -f "src/components/wizard/SystemDownPage.tsx" ]; then
+            echo "❌ SystemDownPage.tsx missing" && exit 1
+          fi
+
+      # ── LoadingPage.tsx ──────────────────────────────────────
+
+      - name: "[LoadingPage] attempt prop present"
+        run: |
+          if ! grep -q "attempt" src/components/wizard/LoadingPage.tsx; then
+            echo "❌ Missing attempt prop in LoadingPage.tsx" && exit 1
+          fi
+
+      - name: "[LoadingPage] onProceed prop present"
+        run: |
+          if ! grep -q "onProceed" src/components/wizard/LoadingPage.tsx; then
+            echo "❌ Missing onProceed prop in LoadingPage.tsx" && exit 1
+          fi
+
+      # ── validation.ts ────────────────────────────────────────
+
+      - name: "[validation] repeated digit check present"
+        run: |
+          if ! grep -q "1{5,}" src/components/wizard/validation.ts; then
+            echo "❌ Missing 6+ consecutive digit check in validation.ts" && exit 1
+          fi
+
+      - name: "[validation] age check present"
+        run: |
+          if ! grep -q "age < 18" src/components/wizard/validation.ts; then
+            echo "❌ Missing minimum age check in validation.ts" && exit 1
+          fi
+
+      - name: "[validation] future date check present"
+        run: |
+          if ! grep -q "fullYear > currentYear" src/components/wizard/validation.ts; then
+            echo "❌ Missing future date check in validation.ts" && exit 1
+          fi
+
+      # ── wrangler.toml ────────────────────────────────────────
+
+      - name: "[wrangler] tail_consumers present"
+        run: |
+          if ! grep -q "tail_consumers" wrangler.toml; then
+            echo "❌ Missing tail_consumers in wrangler.toml" && exit 1
+          fi
+
+      - name: "[wrangler] observability logs enabled"
+        run: |
+          if ! grep -q "invocation_logs" wrangler.toml; then
+            echo "❌ Missing observability logs in wrangler.toml" && exit 1
+          fi
+
+      - name: "✅ All checks passed"
+        run: echo "✅ Vehicle frontend audit passed"
