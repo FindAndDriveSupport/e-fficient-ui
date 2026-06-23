@@ -31,6 +31,8 @@ import {
   trackStep3SubmitApplicationResult,
 } from "@/lib/mixpanel";
 import { buildEdithPayload } from "./edithPayload";
+import { useRef } from "react";
+import { logEvent } from "@/lib/logEvent";
 
 const TITLES = ["Mr", "Mrs", "Miss", "Ms", "Dr", "Prof", "Adv", "Hon", "Rev"];
 const ID_TYPES = ["RSA ID", "Passport", "Other ID"] as const;
