@@ -6,7 +6,6 @@ import { ResponsePage, type ResponseTier } from "./ResponsePage";
 import { BelowMinimumPage } from "./BelowMinimumPage";
 import { Step3 } from "./Step3";
 import { Step3Fast } from "./Step3Fast";
-import { Step3Bike } from "./Step3Bike";
 import { SystemDownPage } from "./SystemDownPage";
 import { IDNotFoundPage } from "./IDNotFoundPage";
 import { HelpButton } from "./HelpButton";
@@ -14,8 +13,8 @@ import { initialData, type WizardData } from "./types";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { workerApi } from "@/lib/worker";
+import { logEvent } from "@/lib/logEvent";
 import { useEmbed } from "@/contexts/EmbedContext";
-import { useDealer } from "@/contexts/DealerContext";
 
 type Phase = "step1" | "step2" | "loading" | "systemDown" | "idasFailed" | "response" | "belowMin" | "step3" | "step3fast";
 
@@ -25,7 +24,7 @@ function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
   return "in_progress";
 }
 
-const MIN_LOAN = 15000;
+const MIN_LOAN = 60000;
 
 const STORAGE_KEY = `wizard_state_${import.meta.env.VITE_DEFAULT_DEALER || 'default'}`;
 
@@ -43,8 +42,6 @@ export function Wizard() {
   const [data, setData] = useState<WizardData>(savedState?.data ?? initialData);
   const [predictionAttempt, setPredictionAttempt] = useState(0);
   const embed = useEmbed();
-  const dealer = useDealer();
-  const isBike = dealer.financeType === "bike";
 
   useEffect(() => {
     if (phase === "belowMin") {
@@ -76,11 +73,20 @@ export function Wizard() {
       if (e?.idasFailed) {
         setPredictionAttempt(0);
         setPhase("idasFailed");
+        logEvent('error', 'idas_failure', {
+          applicantId: currentData.applicantId || null,
+          dealer: embed.dealer,
+        }, embed.dealer);
         return;
       }
       if (e?.systemDown || e?.code === 502) {
         setPredictionAttempt(0);
         setPhase("systemDown");
+        logEvent('error', 'prediction_system_down', {
+          applicantId: currentData.applicantId || null,
+          dealer: embed.dealer,
+          code: e?.code,
+        }, embed.dealer);
         return;
       }
       failed = true;
@@ -88,19 +94,31 @@ export function Wizard() {
 
     if (!failed) {
       const silentFailure = amount === 0 && !currentData.bureauExpenses;
-      if (silentFailure) {
-        failed = true;
-      }
+      if (silentFailure) failed = true;
     }
 
     if (!failed) {
       setPredictionAttempt(0);
-      setPhase(amount <= 0 || amount < MIN_LOAN ? "belowMin" : "response");
+      if (amount <= 0 || amount < MIN_LOAN) {
+        logEvent('info', 'below_minimum_loan', {
+          amount,
+          minLoan: MIN_LOAN,
+          applicantId: currentData.applicantId || null,
+          dealer: embed.dealer,
+        }, embed.dealer);
+        setPhase("belowMin");
+      } else {
+        setPhase("response");
+      }
     } else {
       if (predictionAttempt === 0) {
         setPredictionAttempt(1);
       } else {
         setPredictionAttempt(2);
+        logEvent('error', 'prediction_retries_exhausted', {
+          applicantId: currentData.applicantId || null,
+          dealer: embed.dealer,
+        }, embed.dealer);
       }
     }
   };
@@ -112,7 +130,12 @@ export function Wizard() {
       <div className="mx-auto max-w-xl px-4 py-6 sm:py-10">
         {phase === "step1" && <Step1 data={data} setData={setData} next={() => setPhase("step2")} />}
         {phase === "step2" && (
-          <Step2 data={data} setData={setData} next={() => setPhase(data.hasSAID ? "loading" : "step3")} back={() => setPhase("step1")} />
+          <Step2
+            data={data}
+            setData={setData}
+            next={() => setPhase(data.hasSAID ? "loading" : "step3")}
+            back={() => setPhase("step1")}
+          />
         )}
         {phase === "loading" && (
           <LoadingPage
@@ -148,10 +171,7 @@ export function Wizard() {
             onClose={() => { localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
           />
         )}
-        {phase === "step3" && isBike && (
-          <Step3Bike data={data} setData={setData} back={() => setPhase("response")} onComplete={onComplete} />
-        )}
-        {phase === "step3" && !isBike && (
+        {phase === "step3" && (
           <Step3
             data={data}
             setData={setData}
@@ -160,7 +180,7 @@ export function Wizard() {
             onComplete={onComplete}
           />
         )}
-        {phase === "step3fast" && !isBike && (
+        {phase === "step3fast" && (
           <Step3Fast
             data={data}
             setData={setData}
