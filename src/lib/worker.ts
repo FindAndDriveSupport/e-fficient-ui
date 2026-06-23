@@ -33,6 +33,10 @@ export interface PolicyResponse {
   salesRef?: string;
   StatusCode?: number;
   code?: number;
+  success?: boolean;
+  manualFollowUp?: boolean;
+  warnings?: Array<{ field: string; title: string; message: string; action: string; severity: string }>;
+  errors?: Array<{ field: string; title: string; message: string; action: string; severity: string }>;
   Errors?: Array<{ FieldName: string; FieldStatusCode: number; Description?: string }>;
 }
 
@@ -76,33 +80,44 @@ export interface SubmitDocumentsResponse {
   code?: number;
 }
 
-async function call<T>(path: string, init: RequestInit, dealerKey?: string, mock?: () => T): Promise<T> {
+async function call<T>(
+  path: string,
+  init: RequestInit,
+  dealerKey?: string,
+  mock?: () => T,
+): Promise<T> {
   if (!WORKER) {
     await new Promise((r) => setTimeout(r, 600));
     if (mock) return mock();
     throw new Error("VITE_WORKER_URL not configured");
   }
+
   const res = await fetch(`${WORKER}${path}`, {
     ...init,
     headers: { ...headers(dealerKey), ...(init.headers || {}) },
   });
-  if (!res.ok) {
-    let body: any = {};
-    try { body = await res.json(); } catch { /* ignore */ }
+
+  // Always parse body first
+  let json: any = {};
+  try { json = await res.json(); } catch { /* ignore */ }
+
+  // Throw only for genuine failures — not 422 Edith validation errors
+  if (!res.ok && res.status !== 422) {
     const err: any = new Error(`Request failed: ${res.status}`);
     err.status = res.status;
-    err.systemDown = body?.systemDown ?? false;
-    err.idasFailed = body?.idasFailed ?? false;
-    err.code = body?.code ?? res.status;
+    err.systemDown = json?.systemDown ?? false;
+    err.idasFailed = json?.idasFailed ?? false;
+    err.code = json?.code ?? res.status;
     throw err;
   }
-  const json = await res.json() as any;
+
   // Handle idasFailed returned as 200
   if (json?.idasFailed) {
-    const err: any = new Error('IDAS bureau failure');
+    const err: any = new Error("IDAS bureau failure");
     err.idasFailed = true;
     throw err;
   }
+
   return json as T;
 }
 
@@ -110,15 +125,28 @@ export const workerApi = {
   preQualify(data: Partial<WizardData>, dealerKey?: string) {
     return call<PreQualResponse>(
       "/api/financing/pre-qualification",
-      { method: "POST", body: JSON.stringify({ ...data, firstName: data.name, lastName: data.surname, mobileNumber: data.mobile }) },
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...data,
+          firstName: data.name,
+          lastName: data.surname,
+          mobileNumber: data.mobile,
+        }),
+      },
       dealerKey,
       () => {
         const net = Number(data.netIncome) || 0;
         const monthly = Math.round(net * 0.3);
-        return { applicantId: `mock-${Date.now()}`, monthlyAmount: monthly, totalAmount: monthly * 50 };
+        return {
+          applicantId: `mock-${Date.now()}`,
+          monthlyAmount: monthly,
+          totalAmount: monthly * 50,
+        };
       },
     );
   },
+
   predict(data: Partial<WizardData>, dealerKey?: string) {
     return call<PredictionResponse>(
       "/api/financing/prediction",
@@ -129,25 +157,39 @@ export const workerApi = {
         const exp = Number(data.livingExpenses) || 0;
         const ratio = net > 0 ? exp / net : 1;
         const label: PredictionResponse["prediction"]["label"] =
-          net >= 25000 && ratio < 0.4 ? "Great news" : net >= 12000 && ratio < 0.6 ? "Good news" : "In progress";
+          net >= 25000 && ratio < 0.4
+            ? "Great news"
+            : net >= 12000 && ratio < 0.6
+              ? "Good news"
+              : "In progress";
         const monthly = Math.round(net * 0.3);
         return {
           prediction: { label },
-          reason: "Pay all your accounts on time, every month, to maintain a healthy credit score.",
+          reason:
+            "Pay all your accounts on time, every month, to maintain a healthy credit score.",
           estimatedApprovalAmount: monthly * 50,
           monthlyInstalment: monthly,
         };
       },
     );
   },
+
   createPolicy(data: Partial<WizardData>, dealerKey?: string) {
     return call<PolicyResponse>(
       "/api/policy/create",
       { method: "POST", body: JSON.stringify(data) },
       dealerKey,
-      () => ({ policyNumber: `POL${Date.now().toString().slice(-8)}`, salesRef: undefined, StatusCode: 100, code: 100, Errors: [] }),
+      () => ({
+        policyNumber: `POL${Date.now().toString().slice(-8)}`,
+        salesRef: undefined,
+        StatusCode: 100,
+        code: 100,
+        success: true,
+        Errors: [],
+      }),
     );
   },
+
   getApplicant(applicantId: string, dealerKey?: string) {
     return call<ApplicantResponse>(
       `/api/financing/applicant?applicantId=${encodeURIComponent(applicantId)}`,
@@ -164,12 +206,17 @@ export const workerApi = {
       }),
     );
   },
+
   submitDocuments(data: SubmitDocumentsPayload, dealerKey?: string) {
     return call<SubmitDocumentsResponse>(
       "/api/policy/documents",
       { method: "POST", body: JSON.stringify(data) },
       dealerKey,
-      () => ({ success: true, policyNumber: data.policyNumber, message: "Documents submitted (mock)" }),
+      () => ({
+        success: true,
+        policyNumber: data.policyNumber,
+        message: "Documents submitted (mock)",
+      }),
     );
   },
 };
