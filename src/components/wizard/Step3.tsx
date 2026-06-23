@@ -93,7 +93,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   const dealer = useDealer();
 
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<{ policyNumber?: string; salesRef?: string } | null>(null);
+  const [submitted, setSubmitted] = useState<{ policyNumber?: string; salesRef?: string; manualFollowUp?: boolean } | null>(null);
   const [errors, setErrors] = useState<ParsedEdithResponse | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
@@ -219,29 +219,45 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
     trackStep3SubmitApplication();
     setSubmitting(true);
     setErrors(null);
+
     try {
       const payload = buildEdithPayload(data);
       const res = await workerApi.createPolicy(payload, dealer.key !== "default" ? dealer.key : embed.dealer);
       const parsed = parseEdithErrors(res);
-      if (parsed.isSuccess) {
-        setSubmitted({ policyNumber: res.policyNumber, salesRef: res.salesRef });
-        onComplete?.();
-        trackStep3SubmitApplicationResult(true, {
-          policyNumber: res.policyNumber,
-          salesRef: res.salesRef,
-        });
-        toast.success("Application submitted");
-      } else {
+
+      if (!parsed.isSuccess) {
         setErrors(parsed);
-        trackStep3SubmitApplicationResult(false, {
-          fieldErrorCount: parsed.fieldErrors?.length ?? 0,
-        });
+        trackStep3SubmitApplicationResult(false, { fieldErrorCount: parsed.fieldErrors?.length ?? 0 });
         toast.error("Please review the highlighted items");
+        setSubmitting(false);
+        return;
       }
-    } catch (err) {
+
+      // manualFollowUp — Edith failed but application captured, dealer notified
+      if (res.manualFollowUp) {
+        trackStep3SubmitApplicationResult(true, { manualFollowUp: true, salesRef: res.salesRef });
+        toast.success("Application received");
+        setSubmitted({ salesRef: res.salesRef, manualFollowUp: true });
+        onComplete?.();
+        return;
+      }
+
+      setSubmitted({ policyNumber: res.policyNumber, salesRef: res.salesRef });
+      onComplete?.();
+      trackStep3SubmitApplicationResult(true, {
+        policyNumber: res.policyNumber,
+        salesRef: res.salesRef,
+      });
+      toast.success("Application submitted");
+
+    } catch (err: any) {
       console.error(err);
-      trackStep3SubmitApplicationResult(false, { networkError: true });
-      toast.error("Unable to connect. Please try again.");
+      if (err.idasFailed) {
+        toast.error("We could not verify your ID. Please check your details.");
+      } else {
+        trackStep3SubmitApplicationResult(false, { networkError: true });
+        toast.error("Unable to connect. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
