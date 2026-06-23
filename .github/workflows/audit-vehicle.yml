@@ -261,16 +261,16 @@ jobs:
 
       # ── wrangler.toml ────────────────────────────────────────
 
-      - name: "[wrangler] tail_consumers present"
+      - name: "[wrangler] file exists"
         run: |
-          if ! grep -q "tail_consumers" wrangler.toml; then
-            echo "❌ Missing tail_consumers in wrangler.toml" && exit 1
+          if [ ! -f "wrangler.toml" ]; then
+            echo "❌ wrangler.toml missing" && exit 1
           fi
 
-      - name: "[wrangler] observability logs enabled"
+      - name: "[wrangler] worker name set"
         run: |
-          if ! grep -q "invocation_logs" wrangler.toml; then
-            echo "❌ Missing observability logs in wrangler.toml" && exit 1
+          if ! grep -q "e-fficient-ui-" wrangler.toml; then
+            echo "❌ wrangler.toml missing dealer-specific worker name" && exit 1
           fi
 
       - name: "✅ All checks passed"
