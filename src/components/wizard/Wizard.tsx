@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Step1 } from "./Step1";
 import { Step2 } from "./Step2";
 import { LoadingPage } from "./LoadingPage";
@@ -6,6 +6,7 @@ import { ResponsePage, type ResponseTier } from "./ResponsePage";
 import { BelowMinimumPage } from "./BelowMinimumPage";
 import { Step3 } from "./Step3";
 import { Step3Fast } from "./Step3Fast";
+import { Step3Bike } from "./Step3Bike";
 import { SystemDownPage } from "./SystemDownPage";
 import { IDNotFoundPage } from "./IDNotFoundPage";
 import { HelpButton } from "./HelpButton";
@@ -14,6 +15,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
+import { useDealer } from "@/contexts/DealerContext";
 
 type Phase = "step1" | "step2" | "loading" | "systemDown" | "idasFailed" | "response" | "belowMin" | "step3" | "step3fast";
 
@@ -23,7 +25,7 @@ function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
   return "in_progress";
 }
 
-const MIN_LOAN = 60000;
+const MIN_LOAN = 15000;
 
 const STORAGE_KEY = `wizard_state_${import.meta.env.VITE_DEFAULT_DEALER || 'default'}`;
 
@@ -39,7 +41,10 @@ export function Wizard() {
 
   const [phase, setPhase] = useState<Phase>(safePhase ?? "step1");
   const [data, setData] = useState<WizardData>(savedState?.data ?? initialData);
+  const [predictionAttempt, setPredictionAttempt] = useState(0);
   const embed = useEmbed();
+  const dealer = useDealer();
+  const isBike = dealer.financeType === "bike";
 
   useEffect(() => {
     if (phase === "belowMin") {
@@ -52,8 +57,6 @@ export function Wizard() {
   }, [phase, data]);
 
   const onComplete = () => localStorage.removeItem(STORAGE_KEY);
-
-  const [predictionAttempt, setPredictionAttempt] = useState(0);
 
   const runPrediction = async (currentData: WizardData) => {
     let amount = 0;
@@ -84,8 +87,10 @@ export function Wizard() {
     }
 
     if (!failed) {
-      const silentFailure = amount === 0 && !data.bureauExpenses;
-      if (silentFailure) failed = true;
+      const silentFailure = amount === 0 && !currentData.bureauExpenses;
+      if (silentFailure) {
+        failed = true;
+      }
     }
 
     if (!failed) {
@@ -94,25 +99,25 @@ export function Wizard() {
     } else {
       if (predictionAttempt === 0) {
         setPredictionAttempt(1);
-        // Stay on loading phase — LoadingPage shows retrying state via attempt prop
       } else {
         setPredictionAttempt(2);
-        // LoadingPage shows failed state via attempt prop
       }
     }
   };
+
+  const onLoadingDone = useCallback(() => runPrediction(data), [data]);
 
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-xl px-4 py-6 sm:py-10">
         {phase === "step1" && <Step1 data={data} setData={setData} next={() => setPhase("step2")} />}
         {phase === "step2" && (
-          <Step2 data={data} setData={setData} next={() => setPhase("loading")} back={() => setPhase("step1")} />
+          <Step2 data={data} setData={setData} next={() => setPhase(data.hasSAID ? "loading" : "step3")} back={() => setPhase("step1")} />
         )}
         {phase === "loading" && (
           <LoadingPage
             attempt={predictionAttempt}
-            onDone={() => runPrediction(data)}
+            onDone={onLoadingDone}
             onFailed={() => { setPredictionAttempt(0); setPhase("step2"); }}
             onProceed={() => { setPredictionAttempt(0); setPhase("step3"); }}
           />
@@ -143,7 +148,10 @@ export function Wizard() {
             onClose={() => { localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
           />
         )}
-        {phase === "step3" && (
+        {phase === "step3" && isBike && (
+          <Step3Bike data={data} setData={setData} back={() => setPhase("response")} onComplete={onComplete} />
+        )}
+        {phase === "step3" && !isBike && (
           <Step3
             data={data}
             setData={setData}
@@ -152,7 +160,7 @@ export function Wizard() {
             onComplete={onComplete}
           />
         )}
-        {phase === "step3fast" && (
+        {phase === "step3fast" && !isBike && (
           <Step3Fast
             data={data}
             setData={setData}
