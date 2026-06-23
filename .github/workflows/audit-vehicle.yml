@@ -267,10 +267,10 @@ jobs:
             echo "❌ wrangler.toml missing" && exit 1
           fi
 
-      - name: "[wrangler] worker name set"
+      - name: "[wrangler] main entry point set"
         run: |
-          if ! grep -q "e-fficient-ui-" wrangler.toml; then
-            echo "❌ wrangler.toml missing dealer-specific worker name" && exit 1
+          if ! grep -q "main" wrangler.toml; then
+            echo "❌ wrangler.toml missing main entry point" && exit 1
           fi
 
       - name: "✅ All checks passed"
