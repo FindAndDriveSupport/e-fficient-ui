@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,6 @@ import {
   trackStep3SubmitApplicationResult,
 } from "@/lib/mixpanel";
 import { buildEdithPayload } from "./edithPayload";
-import { useRef } from "react";
 import { logEvent } from "@/lib/logEvent";
 
 const TITLES = ["Mr", "Mrs", "Miss", "Ms", "Dr", "Prof", "Adv", "Hon", "Rev"];
@@ -100,10 +99,61 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   const [idError, setIdError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
 
+  const submittedRef = useRef(false);
+
   const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => setData({ ...data, [k]: v });
 
+  const isMarried = data.maritalStatus === "Married";
+  const isRetired = data.employmentType === "Pensioner/Retired";
+
+  const fieldChecks: boolean[] = [
+    !!data.dealership,
+    !!data.vehicleMake,
+    !!data.vehicleModel,
+    !!data.title,
+    !!data.name,
+    !!data.surname,
+    !!data.idNumber,
+    !!data.mobile,
+    !!data.email,
+    !!data.educationLevel,
+    !!data.maritalStatus,
+    !isMarried || !!data.marriageType,
+    !isMarried || !!data.marriageDate,
+    !isMarried || !!data.spouseFirstName,
+    !isMarried || !!data.spouseLastName,
+    !!data.address1,
+    !!data.postalLocation,
+    !!data.residentialStatus,
+    !!data.physicalAddressDate,
+    !!data.nokFirst,
+    !!data.nokLast,
+    !!data.nokContact,
+    !!data.employmentType,
+    isRetired || !!data.employerName,
+    isRetired || !!data.salaryDay,
+    isRetired || !!data.currentEmploymentStartDate,
+    !!data.confirmGross,
+    !!data.confirmNet,
+    !data.hasDeposit || !!data.confirmDeposit,
+    data.dataAttestation && data.financialAccessConsent,
+  ];
+  const completedFields = fieldChecks.filter(Boolean).length;
+  const totalFields = fieldChecks.length;
+  const pct = Math.round((completedFields / totalFields) * 100);
+
+  useEffect(() => { trackStep3Started(); }, []);
+
   useEffect(() => {
-    trackStep3Started();
+    return () => {
+      if (!submittedRef.current) {
+        logEvent('warn', 'form_abandoned', {
+          dealer: dealer.key,
+          completedPct: pct,
+          applicantId: data.applicantId || null,
+        }, dealer.key);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -239,11 +289,13 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
       if (res.manualFollowUp) {
         trackStep3SubmitApplicationResult(true, { manualFollowUp: true, salesRef: res.salesRef });
         toast.success("Application received");
+        submittedRef.current = true;
         setSubmitted({ salesRef: res.salesRef, manualFollowUp: true });
         onComplete?.();
         return;
       }
 
+      submittedRef.current = true;
       setSubmitted({ policyNumber: res.policyNumber, salesRef: res.salesRef });
       onComplete?.();
       trackStep3SubmitApplicationResult(true, {
@@ -254,6 +306,11 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
 
     } catch (err: any) {
       console.error(err);
+      logEvent('error', 'policy_submission_failed', {
+        dealer: dealer.key,
+        error: err.message,
+        idasFailed: err.idasFailed ?? false,
+      }, dealer.key);
       if (err.idasFailed) {
         toast.error("We could not verify your ID. Please check your details.");
       } else {
@@ -283,45 +340,6 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
       </div>
     );
   }
-
-  const isMarried = data.maritalStatus === "Married";
-  const isRetired = data.employmentType === "Pensioner/Retired";
-
-  const fieldChecks: boolean[] = [
-    !!data.dealership,
-    !!data.vehicleMake,
-    !!data.vehicleModel,
-    !!data.title,
-    !!data.name,
-    !!data.surname,
-    !!data.idNumber,
-    !!data.mobile,
-    !!data.email,
-    !!data.educationLevel,
-    !!data.maritalStatus,
-    !isMarried || !!data.marriageType,
-    !isMarried || !!data.marriageDate,
-    !isMarried || !!data.spouseFirstName,
-    !isMarried || !!data.spouseLastName,
-    !!data.address1,
-    !!data.postalLocation,
-    !!data.residentialStatus,
-    !!data.physicalAddressDate,
-    !!data.nokFirst,
-    !!data.nokLast,
-    !!data.nokContact,
-    !!data.employmentType,
-    isRetired || !!data.employerName,
-    isRetired || !!data.salaryDay,
-    isRetired || !!data.currentEmploymentStartDate,
-    !!data.confirmGross,
-    !!data.confirmNet,
-    !data.hasDeposit || !!data.confirmDeposit,
-    data.dataAttestation && data.financialAccessConsent,
-  ];
-  const completedFields = fieldChecks.filter(Boolean).length;
-  const totalFields = fieldChecks.length;
-  const pct = Math.round((completedFields / totalFields) * 100);
 
   return (
     <div className="space-y-6">
