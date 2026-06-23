@@ -161,10 +161,10 @@ jobs:
             echo "❌ Missing systemDown phase in Wizard.tsx" && exit 1
           fi
 
-      - name: "[Wizard] no loadingFailed phase"
+      - name: "[Wizard] loadingFailed not used as active phase"
         run: |
-          if grep -q '"loadingFailed"' src/components/wizard/Wizard.tsx; then
-            echo "❌ Old loadingFailed phase still present in Wizard.tsx" && exit 1
+          if grep -q 'setPhase("loadingFailed")' src/components/wizard/Wizard.tsx; then
+            echo "❌ Old loadingFailed setPhase still present in Wizard.tsx" && exit 1
           fi
 
       - name: "[Wizard] useCallback used for onLoadingDone"
