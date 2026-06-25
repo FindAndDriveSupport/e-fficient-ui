@@ -43,7 +43,7 @@ export function Step2({ data, setData, next, back }: Props) {
 
   const valid =
     Number(data.grossIncome) > 0 &&
-    Number(data.grossIncome) <= 250000 &&
+    Number(data.grossIncome) <= 500000 &&
     (!data.hasSAID || data.idNumber.trim().length >= 6) &&
     (data.hasSAID || data.idNumber.trim().length >= 4) &&
     data.consents1.every(Boolean);
