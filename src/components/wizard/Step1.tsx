@@ -46,7 +46,7 @@ export function Step1({ data, setData, next }: Props) {
     data.name.trim() &&
     data.surname.trim() &&
     Number(data.netIncome) > 0 &&
-    Number(data.netIncome) <= 150000 &&
+    Number(data.netIncome) <= 300000 &&
     mobile.valid;
 
   const onContinue = async () => {
