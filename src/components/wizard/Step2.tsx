@@ -67,7 +67,7 @@ export function Step2({ data, setData, next, back }: Props) {
         <CurrencyInput
           label="Gross income (monthly)"
           value={data.grossIncome}
-          max={250000}
+          max={500000}
           onChange={(v) => u({ grossIncome: v })}
         />
 
