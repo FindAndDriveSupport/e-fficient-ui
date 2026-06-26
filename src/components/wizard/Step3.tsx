@@ -285,7 +285,6 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
         return;
       }
 
-      // manualFollowUp — Edith failed but application captured, dealer notified
       if (res.manualFollowUp) {
         trackStep3SubmitApplicationResult(true, { manualFollowUp: true, salesRef: res.salesRef });
         toast.success("Application received");
@@ -352,7 +351,10 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
           className="w-full rounded-xl border border-border bg-muted/40 p-3 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/60"
         >
           Don't want to fill out the long form?{" "}
-          <span className="font-semibold text-foreground underline">Try our fast application</span> — just upload
+          <span
+            className="font-semibold underline"
+            style={{ color: "var(--dealer-primary, var(--primary))" }}
+          >Try our fast application</span> — just upload
           your documents and we'll handle the rest.
         </button>
       )}
