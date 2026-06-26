@@ -72,7 +72,10 @@ export function Step1({ data, setData, next }: Props) {
   if (initialising) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <Loader2
+          className="h-10 w-10 animate-spin"
+          style={{ color: "var(--dealer-primary, var(--primary))" }}
+        />
         <p className="text-sm text-muted-foreground">Loading…</p>
       </div>
     );
