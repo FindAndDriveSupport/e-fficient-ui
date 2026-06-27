@@ -132,6 +132,9 @@ export const workerApi = {
           firstName: data.name,
           lastName: data.surname,
           mobileNumber: data.mobile,
+          hasExistingFinance: data.hasFinance,       // ← fix: map hasFinance → hasExistingFinance
+          deposit: Number(data.depositAmount) || 0,  // ← explicit mapping for clarity
+          currentInstalment: Number(data.financeAmount) || 0,
         }),
       },
       dealerKey,
