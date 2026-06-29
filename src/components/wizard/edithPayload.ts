@@ -2,9 +2,10 @@ import type { WizardData } from "./types";
 
 /**
  * Maps WizardData → Edith CreatePolicy payload.
- * Shared between Step3 (Manual) and Step3Fast.
+ * Shared between Step3 (Manual), Step3Bike, and Step3Fast.
+ * Optional branchCodeOverride used for multi-branch dealer groups.
  */
-export function buildEdithPayload(data: WizardData) {
+export function buildEdithPayload(data: WizardData, branchCodeOverride?: string) {
   const isMarried = data.maritalStatus === "Married";
   return {
     title: data.title?.toUpperCase(),
@@ -62,6 +63,8 @@ export function buildEdithPayload(data: WizardData) {
     bankName: data.bankName || undefined,
     accountType: data.accountType || undefined,
     bankAccountNumber: data.bankAccountNumber || undefined,
+    // Branch code override for multi-branch dealer groups
+    branchCodeOverride: branchCodeOverride || undefined,
   };
 }
 
