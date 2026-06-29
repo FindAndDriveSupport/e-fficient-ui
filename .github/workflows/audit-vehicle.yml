@@ -43,6 +43,12 @@ jobs:
             echo "❌ Missing manualFollowUp in PolicyResponse" && exit 1
           fi
 
+      - name: "[worker.ts] hasExistingFinance mapped in preQualify"
+        run: |
+          if ! grep -q "hasExistingFinance" src/lib/worker.ts; then
+            echo "❌ Missing hasExistingFinance mapping in preQualify" && exit 1
+          fi
+
       # ── logEvent.ts ──────────────────────────────────────────
 
       - name: "[logEvent] file exists"
@@ -89,6 +95,12 @@ jobs:
         run: |
           if ! grep -q "spouseIdType" src/components/wizard/edithPayload.ts; then
             echo "❌ Missing spouseIdType in edithPayload.ts" && exit 1
+          fi
+
+      - name: "[edithPayload.ts] branchCodeOverride parameter present"
+        run: |
+          if ! grep -q "branchCodeOverride" src/components/wizard/edithPayload.ts; then
+            echo "❌ Missing branchCodeOverride parameter in edithPayload.ts" && exit 1
           fi
 
       # ── Step3.tsx ────────────────────────────────────────────
@@ -139,6 +151,44 @@ jobs:
         run: |
           if ! grep -q "submittedRef" src/components/wizard/Step3.tsx; then
             echo "❌ Missing submittedRef in Step3.tsx" && exit 1
+          fi
+
+      - name: "[Step3] selectedBranchCode state present"
+        run: |
+          if ! grep -q "selectedBranchCode" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing selectedBranchCode state in Step3.tsx" && exit 1
+          fi
+
+      - name: "[Step3] branch selector renders for multi-branch dealers"
+        run: |
+          if ! grep -q "dealer.branches" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing dealer.branches check in Step3.tsx" && exit 1
+          fi
+
+      - name: "[Step3] buildEdithPayload called with branchCodeOverride"
+        run: |
+          if ! grep -q "buildEdithPayload(data, selectedBranchCode)" src/components/wizard/Step3.tsx; then
+            echo "❌ Missing selectedBranchCode in buildEdithPayload call in Step3.tsx" && exit 1
+          fi
+
+      # ── Step3Fast.tsx ────────────────────────────────────────
+
+      - name: "[Step3Fast] selectedBranchCode state present"
+        run: |
+          if ! grep -q "selectedBranchCode" src/components/wizard/Step3Fast.tsx; then
+            echo "❌ Missing selectedBranchCode state in Step3Fast.tsx" && exit 1
+          fi
+
+      - name: "[Step3Fast] branch selector renders for multi-branch dealers"
+        run: |
+          if ! grep -q "dealer.branches" src/components/wizard/Step3Fast.tsx; then
+            echo "❌ Missing dealer.branches check in Step3Fast.tsx" && exit 1
+          fi
+
+      - name: "[Step3Fast] buildEdithPayload called with branchCodeOverride"
+        run: |
+          if ! grep -q "buildEdithPayload(data, selectedBranchCode)" src/components/wizard/Step3Fast.tsx; then
+            echo "❌ Missing selectedBranchCode in buildEdithPayload call in Step3Fast.tsx" && exit 1
           fi
 
       # ── Wizard.tsx ───────────────────────────────────────────
@@ -207,6 +257,20 @@ jobs:
         run: |
           if ! grep -q "below_minimum_loan" src/components/wizard/Wizard.tsx; then
             echo "❌ Missing below_minimum_loan log in Wizard.tsx" && exit 1
+          fi
+
+      # ── DealerContext.tsx ─────────────────────────────────────
+
+      - name: "[DealerContext] DealerBranch interface present"
+        run: |
+          if ! grep -q "DealerBranch" src/contexts/DealerContext.tsx; then
+            echo "❌ Missing DealerBranch interface in DealerContext.tsx" && exit 1
+          fi
+
+      - name: "[DealerContext] branches field present"
+        run: |
+          if ! grep -q "branches" src/contexts/DealerContext.tsx; then
+            echo "❌ Missing branches field in DealerContext.tsx" && exit 1
           fi
 
       # ── IDNotFoundPage.tsx ───────────────────────────────────
