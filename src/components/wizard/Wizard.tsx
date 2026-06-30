@@ -27,9 +27,11 @@ function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
 const MIN_LOAN = 60000;
 
 const STORAGE_KEY = `wizard_state_${import.meta.env.VITE_DEFAULT_DEALER || 'default'}`;
+const DISABLE_CACHE = import.meta.env.VITE_DISABLE_CACHE === 'true';
 
 export function Wizard() {
   const savedState = (() => {
+    if (DISABLE_CACHE) return null;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : null;
@@ -44,6 +46,7 @@ export function Wizard() {
   const embed = useEmbed();
 
   useEffect(() => {
+    if (DISABLE_CACHE) return;
     if (phase === "belowMin") {
       localStorage.removeItem(STORAGE_KEY);
       return;
@@ -53,7 +56,9 @@ export function Wizard() {
     } catch { /* storage full or unavailable */ }
   }, [phase, data]);
 
-  const onComplete = () => localStorage.removeItem(STORAGE_KEY);
+  const onComplete = () => {
+    if (!DISABLE_CACHE) localStorage.removeItem(STORAGE_KEY);
+  };
 
   const runPrediction = async (currentData: WizardData) => {
     let amount = 0;
@@ -167,8 +172,8 @@ export function Wizard() {
         )}
         {phase === "belowMin" && (
           <BelowMinimumPage
-            onDone={() => { localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
-            onClose={() => { localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
+            onDone={() => { if (!DISABLE_CACHE) localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
+            onClose={() => { if (!DISABLE_CACHE) localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
           />
         )}
         {phase === "step3" && (

@@ -98,6 +98,9 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   const [errors, setErrors] = useState<ParsedEdithResponse | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
+  const [selectedBranchCode, setSelectedBranchCode] = useState<string>(
+    dealer.branches?.[0]?.code ?? dealer.branchCode
+  );
 
   const submittedRef = useRef(false);
 
@@ -200,7 +203,6 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
       .catch((e) => console.warn("[Step3] getApplicant failed", e));
   }, [dealer.name]);
 
-  // Pre-fill NOK with spouse details when married
   useEffect(() => {
     if (data.maritalStatus === "Married" && data.spouseFirstName) {
       setData({
@@ -273,7 +275,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
     setErrors(null);
 
     try {
-      const payload = buildEdithPayload(data);
+      const payload = buildEdithPayload(data, selectedBranchCode);
       const res = await workerApi.createPolicy(payload, dealer.key !== "default" ? dealer.key : embed.dealer);
       const parsed = parseEdithErrors(res);
 
@@ -354,8 +356,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
           <span
             className="font-semibold underline"
             style={{ color: "var(--dealer-primary, var(--primary))" }}
-          >Try our fast application</span> — just upload
-          your documents and we'll handle the rest.
+          >Try our fast application</span> — just upload your documents and we'll handle the rest.
         </button>
       )}
 
@@ -371,6 +372,36 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
           />
         </div>
       </div>
+
+      {/* Branch selector — only shown for multi-branch dealers */}
+      {dealer.branches && dealer.branches.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+          <h3 className="text-sm font-semibold mb-3">Select your branch</h3>
+          <div className="grid grid-cols-1 gap-2">
+            {dealer.branches.map((b) => (
+              <label
+                key={b.code}
+                className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                  selectedBranchCode === b.code
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:bg-muted/40"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="branch"
+                  value={b.code}
+                  checked={selectedBranchCode === b.code}
+                  onChange={() => setSelectedBranchCode(b.code)}
+                  className="accent-primary"
+                />
+                <span className="text-sm font-medium">{b.name}</span>
+                <span className="text-xs text-muted-foreground ml-auto font-mono">{b.code}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {errors?.systemMessage && (
         <EdithErrorBanner

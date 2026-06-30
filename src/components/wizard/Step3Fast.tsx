@@ -29,6 +29,9 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
   const [submitted, setSubmitted] = useState<{ policyNumber?: string; salesRef?: string } | null>(null);
   const [vehicleError, setVehicleError] = useState<string | null>(null);
   const [docsError, setDocsError] = useState<string | null>(null);
+  const [selectedBranchCode, setSelectedBranchCode] = useState<string>(
+    dealer.branches?.[0]?.code ?? dealer.branchCode
+  );
 
   const [idDoc, setIdDoc] = useState<UploadedFile[]>([]);
   const [bankStatements, setBankStatements] = useState<UploadedFile[]>([]);
@@ -62,7 +65,7 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
     setSubmitting(true);
 
     try {
-      const payload = buildEdithPayload(data);
+      const payload = buildEdithPayload(data, selectedBranchCode);
       const res = await workerApi.createPolicy(payload, dealer.key !== "default" ? dealer.key : embed.dealer);
 
       const policyNumber = res.policyNumber;
@@ -163,6 +166,36 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
         <span className="font-semibold text-foreground underline">Switch to full application</span>
       </button>
 
+      {/* Branch selector — only shown for multi-branch dealers */}
+      {dealer.branches && dealer.branches.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+          <h3 className="text-sm font-semibold mb-3">Select your branch</h3>
+          <div className="grid grid-cols-1 gap-2">
+            {dealer.branches.map((b) => (
+              <label
+                key={b.code}
+                className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                  selectedBranchCode === b.code
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:bg-muted/40"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="branch"
+                  value={b.code}
+                  checked={selectedBranchCode === b.code}
+                  onChange={() => setSelectedBranchCode(b.code)}
+                  className="accent-primary"
+                />
+                <span className="text-sm font-medium">{b.name}</span>
+                <span className="text-xs text-muted-foreground ml-auto font-mono">{b.code}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Vehicle & Dealership */}
       <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
         <h3 className="text-sm font-semibold">Vehicle & dealership</h3>
@@ -216,7 +249,6 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
           files={idDoc}
           onChange={setIdDoc}
         />
-
         <FileUpload
           label="3 Months Bank Statements *"
           hint="Upload your most recent 3 months of bank statements"
@@ -224,7 +256,6 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
           files={bankStatements}
           onChange={setBankStatements}
         />
-
         <FileUpload
           label="3 Months Salary Slips *"
           hint="Upload your most recent 3 months of payslips"
@@ -232,7 +263,6 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
           files={salarySlips}
           onChange={setSalarySlips}
         />
-
         <FileUpload
           label="Proof of Residence *"
           hint="Not older than 3 months (utility bill, bank statement, etc.)"

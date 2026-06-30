@@ -5,7 +5,7 @@
  *   <script>
  *     window.EfficientWidget = { dealer: "north-western-ford" };
  *   </script>
- *   // <script src="https://{key}.seritifinance.findndrive.co.za/widget.js"></script>
+ *   <script src="https://e-fficient-ui-{key}.still-fire-1c3d.workers.dev/widget.js"></script>
  *
  * Config options:
  *   dealer      {string}  required — dealer key from dealers.config.js
