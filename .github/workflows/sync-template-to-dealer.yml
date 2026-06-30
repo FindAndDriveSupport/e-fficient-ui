@@ -4,39 +4,47 @@ on:
   workflow_dispatch:
     inputs:
       dealer_repo:
-        description: 'Dealer repo name to sync (e.g. e-fficient-ui-keitzman-finance)'
-        required: true
+        description: 'Dealer repo name to sync (e.g. e-fficient-ui-keitzman-finance) — leave blank to sync all listed below'
+        required: false
   repository_dispatch:
     types: [sync-to-dealer]
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dealer: [e-fficient-ui-keitzman-finance, e-fficient-ui-north-western-motors]
+      fail-fast: false
 
     steps:
+      - name: Skip if specific dealer was requested and doesn't match
+        id: skip
+        run: |
+          REQUESTED="${{ github.event.inputs.dealer_repo || github.event.client_payload.dealer_repo }}"
+          if [ -n "$REQUESTED" ] && [ "$REQUESTED" != "${{ matrix.dealer }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout template repo (e-fficient-ui)
+        if: steps.skip.outputs.skip == 'false'
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_PAT }}
           path: template
 
-      - name: Determine target dealer repo
-        id: target
-        run: |
-          if [ -n "${{ github.event.client_payload.dealer_repo }}" ]; then
-            echo "repo=${{ github.event.client_payload.dealer_repo }}" >> $GITHUB_OUTPUT
-          else
-            echo "repo=${{ github.event.inputs.dealer_repo }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Checkout dealer repo
+      - name: Checkout dealer repo (${{ matrix.dealer }})
+        if: steps.skip.outputs.skip == 'false'
         uses: actions/checkout@v4
         with:
-          repository: FindAndDriveSupport/${{ steps.target.outputs.repo }}
+          repository: FindAndDriveSupport/${{ matrix.dealer }}
           token: ${{ secrets.GH_PAT }}
           path: dealer
 
       - name: Sync files from template to dealer
+        if: steps.skip.outputs.skip == 'false'
         run: |
           rsync -av \
             --exclude='.git/' \
@@ -50,13 +58,14 @@ jobs:
             template/ dealer/
 
       - name: Check for changes
+        if: steps.skip.outputs.skip == 'false'
         id: changes
         run: |
           cd dealer
           git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
 
       - name: Commit and push changes
-        if: steps.changes.outputs.changed == 'true'
+        if: steps.skip.outputs.skip == 'false' && steps.changes.outputs.changed == 'true'
         run: |
           cd dealer
           git config user.name "github-actions[bot]"
