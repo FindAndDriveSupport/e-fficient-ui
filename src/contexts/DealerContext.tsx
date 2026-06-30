@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useEmbed } from "./EmbedContext";
-import { getDealerConfig, type DealerTheme, type DealerFeatures } from "@/config/dealerConfig";
+import { getDealerConfig, type DealerTheme, type DealerFeatures, type DealerBranch } from "@/config/dealerConfig";
 
-export type { DealerTheme, DealerFeatures };
+export type { DealerTheme, DealerFeatures, DealerBranch };
 
 export interface DealerConfig {
   key: string;
@@ -10,6 +10,7 @@ export interface DealerConfig {
   branchCode: string;
   theme: DealerTheme;
   features: DealerFeatures;
+  branches?: DealerBranch[];
 }
 
 const DealerContext = createContext<DealerConfig>(getDealerConfig());
