@@ -1,0 +1,66 @@
+name: Sync Template to Dealer
+
+on:
+  workflow_dispatch:
+    inputs:
+      dealer_repo:
+        description: 'Dealer repo name to sync (e.g. e-fficient-ui-keitzman-finance)'
+        required: true
+  repository_dispatch:
+    types: [sync-to-dealer]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout template repo (e-fficient-ui)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+          path: template
+
+      - name: Determine target dealer repo
+        id: target
+        run: |
+          if [ -n "${{ github.event.client_payload.dealer_repo }}" ]; then
+            echo "repo=${{ github.event.client_payload.dealer_repo }}" >> $GITHUB_OUTPUT
+          else
+            echo "repo=${{ github.event.inputs.dealer_repo }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout dealer repo
+        uses: actions/checkout@v4
+        with:
+          repository: FindAndDriveSupport/${{ steps.target.outputs.repo }}
+          token: ${{ secrets.GH_PAT }}
+          path: dealer
+
+      - name: Sync files from template to dealer
+        run: |
+          rsync -av \
+            --exclude='.git/' \
+            --exclude='node_modules/' \
+            --exclude='.env' \
+            --exclude='wrangler.toml' \
+            --exclude='src/config/dealerConfig.ts' \
+            --exclude='src/contexts/DealerContext.tsx' \
+            --exclude='src/routes/index.tsx' \
+            --exclude='.github/' \
+            template/ dealer/
+
+      - name: Check for changes
+        id: changes
+        run: |
+          cd dealer
+          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          cd dealer
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: sync latest changes from e-fficient-ui template"
+          git push
