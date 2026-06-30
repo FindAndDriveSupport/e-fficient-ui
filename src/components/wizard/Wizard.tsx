@@ -97,10 +97,9 @@ export function Wizard() {
       failed = true;
     }
 
-    if (!failed) {
-      const silentFailure = amount === 0 && !currentData.bureauExpenses;
-      if (silentFailure) failed = true;
-    }
+    // NOTE: removed the old "silentFailure" heuristic (amount === 0 && !bureauExpenses).
+    // A "Low" prediction legitimately returns amount = 0 — that is not a failure,
+    // it's a valid result that should route to belowMin, not trigger a retry loop.
 
     if (!failed) {
       setPredictionAttempt(0);
