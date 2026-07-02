@@ -1,6 +1,13 @@
+import { useEffect } from "react";
 import experianLogo from "@/assets/experian_idfKXIhI6C_0.png";
+import { usePageTimer, mp } from "@/lib/mixpanel";
 
 export function SystemDownPage({ onRetry }: { onRetry: () => void }) {
+  usePageTimer("System Down Page");
+  useEffect(() => {
+    mp.track("System Down Page Viewed");
+  }, []);
+
   return (
     <div className="flex min-h-[80vh] flex-col items-center justify-center px-6 text-center">
       <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-amber-500">
@@ -18,7 +25,10 @@ export function SystemDownPage({ onRetry }: { onRetry: () => void }) {
       </p>
 
       <button
-        onClick={onRetry}
+        onClick={() => {
+          mp.track("System Down Page Retry Clicked");
+          onRetry();
+        }}
         className="mt-6 rounded-xl px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)]"
         style={{ backgroundImage: "var(--gradient-primary)" }}
       >
