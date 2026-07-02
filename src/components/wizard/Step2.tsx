@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,7 +8,13 @@ import { StepHeader } from "./StepHeader";
 import { CurrencyInput } from "./CurrencyInput";
 import type { WizardData } from "./types";
 import { validateSAID } from "./validation";
-import { usePageTimer, trackStep2Submit } from "@/lib/mixpanel";
+import {
+  usePageTimer,
+  trackStep2Viewed,
+  trackStep2FieldChanged,
+  trackStep2Submit,
+  trackStep2Back,
+} from "@/lib/mixpanel";
 
 interface Props {
   data: WizardData;
@@ -25,7 +31,9 @@ const CONSENTS = [
 ];
 
 export function Step2({ data, setData, next, back }: Props) {
-  usePageTimer("Step 2 - Income & Identity");
+  usePageTimer("Step 2");
+  useEffect(() => { trackStep2Viewed(); }, []);
+
   const u = (patch: Partial<WizardData>) => setData({ ...data, ...patch });
   const [idError, setIdError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
@@ -37,8 +45,17 @@ export function Step2({ data, setData, next, back }: Props) {
       setIdError(err);
       if (err) return;
     }
-    trackStep2Submit();
+    trackStep2Submit({
+      idType: data.hasSAID ? "RSA ID" : "Passport",
+      hasMarriage: data.maritalStatus === "Married",
+      employmentType: data.employmentType,
+    });
     next();
+  };
+
+  const onBack = () => {
+    trackStep2Back();
+    back();
   };
 
   const valid =
@@ -52,11 +69,12 @@ export function Step2({ data, setData, next, back }: Props) {
     const c = [...data.consents1];
     c[i] = !c[i];
     u({ consents1: c });
+    trackStep2FieldChanged(`consent_${i}`, !data.consents1[i]);
   };
 
   return (
     <div className="space-y-6">
-      <StepHeader step={2} total={3} title="Income & identity" subtitle="A bit more to refine your estimate." onBack={back} />
+      <StepHeader step={2} total={3} title="Income & identity" subtitle="A bit more to refine your estimate." onBack={onBack} />
       <QualificationBanner
         monthlyAmount={data.preQualMonthly ?? 0}
         totalAmount={data.preQualTotal ?? 0}
@@ -68,12 +86,22 @@ export function Step2({ data, setData, next, back }: Props) {
           label="Gross income (monthly)"
           value={data.grossIncome}
           max={500000}
-          onChange={(v) => u({ grossIncome: v })}
+          onChange={(v) => {
+            u({ grossIncome: v });
+            trackStep2FieldChanged("grossIncome", Number(v));
+          }}
         />
 
         <div className="space-y-2">
           <label className="flex items-center gap-3">
-            <Checkbox checked={!data.hasSAID} onCheckedChange={(v: boolean | "indeterminate") => { u({ hasSAID: !v }); setIdError(null); }} />
+            <Checkbox
+              checked={!data.hasSAID}
+              onCheckedChange={(v: boolean | "indeterminate") => {
+                u({ hasSAID: !v });
+                setIdError(null);
+                trackStep2FieldChanged("hasSAID", !!v);
+              }}
+            />
             <span className="text-sm font-medium">I do not have a South African ID</span>
           </label>
           {data.hasSAID ? (
@@ -83,10 +111,15 @@ export function Step2({ data, setData, next, back }: Props) {
                 maxLength={13}
                 inputMode="numeric"
                 onChange={(e) => {
-                  u({ idNumber: e.target.value.replace(/\D/g, "") });
-                  if (touched) setIdError(validateSAID(e.target.value.replace(/\D/g, "")));
+                  const val = e.target.value.replace(/\D/g, "");
+                  u({ idNumber: val });
+                  if (touched) setIdError(validateSAID(val));
+                  trackStep2FieldChanged("idNumber");
                 }}
-                onBlur={() => { setTouched(true); setIdError(validateSAID(data.idNumber)); }}
+                onBlur={() => {
+                  setTouched(true);
+                  setIdError(validateSAID(data.idNumber));
+                }}
                 placeholder="13-digit ID"
                 aria-invalid={!!idError}
               />
@@ -99,11 +132,17 @@ export function Step2({ data, setData, next, back }: Props) {
                   <span>✓</span> ID number is valid
                 </p>
               ) : null}
-
             </Field>
           ) : (
             <Field label="Passport / other ID number">
-              <Input value={data.idNumber} onChange={(e) => u({ idNumber: e.target.value })} placeholder="Document number" />
+              <Input
+                value={data.idNumber}
+                onChange={(e) => {
+                  u({ idNumber: e.target.value });
+                  trackStep2FieldChanged("passportNumber");
+                }}
+                placeholder="Document number"
+              />
             </Field>
           )}
         </div>
@@ -145,4 +184,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
-
