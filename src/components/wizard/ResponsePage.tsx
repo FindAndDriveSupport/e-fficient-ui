@@ -1,8 +1,13 @@
 import { CheckCircle2, Sparkles, TrendingUp, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AffordabilityCard } from "./AffordabilityCard";
+import {
+  usePageTimer,
+  trackResponsePageViewed,
+  trackResponseContinueClicked,
+} from "@/lib/mixpanel";
 
 export type ResponseTier = "in_progress" | "good" | "great";
 
@@ -47,6 +52,11 @@ interface Props {
 }
 
 export function ResponsePage({ tier, reason, estimatedApprovalAmount, monthlyInstalment, consents, setConsents, next }: Props) {
+  usePageTimer("Response Page");
+  useEffect(() => {
+    trackResponsePageViewed(tier, estimatedApprovalAmount);
+  }, []);
+
   const copy = COPY[tier];
   const [agreed, setAgreed] = useState(consents);
   const valid = agreed.every(Boolean);
@@ -57,6 +67,11 @@ export function ResponsePage({ tier, reason, estimatedApprovalAmount, monthlyIns
     c[i] = !c[i];
     setAgreed(c);
     setConsents(c);
+  };
+
+  const onContinue = () => {
+    trackResponseContinueClicked(tier);
+    next();
   };
 
   return (
@@ -103,7 +118,7 @@ export function ResponsePage({ tier, reason, estimatedApprovalAmount, monthlyIns
         className="w-full rounded-xl py-6 text-base font-semibold shadow-[var(--shadow-elegant)]"
         style={{ backgroundImage: "var(--gradient-primary)" }}
         disabled={!valid}
-        onClick={next}
+        onClick={onContinue}
       >
         Submit Application
       </Button>
