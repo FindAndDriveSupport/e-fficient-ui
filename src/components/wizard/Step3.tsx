@@ -26,9 +26,13 @@ import { workerApi } from "@/lib/worker";
 import { parseEdithErrors, type ParsedEdithResponse } from "@/lib/edithErrors";
 import {
   usePageTimer,
-  trackStep3Started,
-  trackStep3SubmitApplication,
-  trackStep3SubmitApplicationResult,
+  trackStep3Viewed,
+  trackStep3FieldChanged,
+  trackStep3SubmitClicked,
+  trackStep3SubmitResult,
+  trackStep3Abandoned,
+  trackStep3SwitchedToFast,
+  trackBranchSelected,
 } from "@/lib/mixpanel";
 import { buildEdithPayload } from "./edithPayload";
 import { logEvent } from "@/lib/logEvent";
@@ -89,7 +93,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   onSwitchToFast?: () => void;
   onComplete?: () => void;
 }) {
-  usePageTimer("Step 3 - Full Application");
+  usePageTimer("Step 3");
   const embed = useEmbed();
   const dealer = useDealer();
 
@@ -103,8 +107,13 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   );
 
   const submittedRef = useRef(false);
+  const lastFieldRef = useRef<string | null>(null);
 
-  const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => setData({ ...data, [k]: v });
+  const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => {
+    setData({ ...data, [k]: v });
+    lastFieldRef.current = k;
+    trackStep3FieldChanged(k as string, typeof v === "boolean" ? v : undefined);
+  };
 
   const isMarried = data.maritalStatus === "Married";
   const isRetired = data.employmentType === "Pensioner/Retired";
@@ -145,11 +154,12 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   const totalFields = fieldChecks.length;
   const pct = Math.round((completedFields / totalFields) * 100);
 
-  useEffect(() => { trackStep3Started(); }, []);
+  useEffect(() => { trackStep3Viewed("manual"); }, []);
 
   useEffect(() => {
     return () => {
       if (!submittedRef.current) {
+        trackStep3Abandoned(lastFieldRef.current ?? undefined);
         logEvent('warn', 'form_abandoned', {
           dealer: dealer.key,
           completedPct: pct,
@@ -270,7 +280,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
     }
     setAddressError(null);
 
-    trackStep3SubmitApplication();
+    trackStep3SubmitClicked();
     setSubmitting(true);
     setErrors(null);
 
@@ -281,14 +291,14 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
 
       if (!parsed.isSuccess) {
         setErrors(parsed);
-        trackStep3SubmitApplicationResult(false, { fieldErrorCount: parsed.fieldErrors?.length ?? 0 });
+        trackStep3SubmitResult(false, { fieldErrorCount: parsed.fieldErrors?.length ?? 0 });
         toast.error("Please review the highlighted items");
         setSubmitting(false);
         return;
       }
 
       if (res.manualFollowUp) {
-        trackStep3SubmitApplicationResult(true, { manualFollowUp: true, salesRef: res.salesRef });
+        trackStep3SubmitResult(true, { manualFollowUp: true, salesRef: res.salesRef });
         toast.success("Application received");
         submittedRef.current = true;
         setSubmitted({ salesRef: res.salesRef, manualFollowUp: true });
@@ -299,7 +309,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
       submittedRef.current = true;
       setSubmitted({ policyNumber: res.policyNumber, salesRef: res.salesRef });
       onComplete?.();
-      trackStep3SubmitApplicationResult(true, {
+      trackStep3SubmitResult(true, {
         policyNumber: res.policyNumber,
         salesRef: res.salesRef,
       });
@@ -315,7 +325,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
       if (err.idasFailed) {
         toast.error("We could not verify your ID. Please check your details.");
       } else {
-        trackStep3SubmitApplicationResult(false, { networkError: true });
+        trackStep3SubmitResult(false, { networkError: true });
         toast.error("Unable to connect. Please try again.");
       }
     } finally {
@@ -349,7 +359,10 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
       {onSwitchToFast && (
         <button
           type="button"
-          onClick={onSwitchToFast}
+          onClick={() => {
+            trackStep3SwitchedToFast();
+            onSwitchToFast();
+          }}
           className="w-full rounded-xl border border-border bg-muted/40 p-3 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/60"
         >
           Don't want to fill out the long form?{" "}
@@ -392,7 +405,10 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
                   name="branch"
                   value={b.code}
                   checked={selectedBranchCode === b.code}
-                  onChange={() => setSelectedBranchCode(b.code)}
+                  onChange={() => {
+                    setSelectedBranchCode(b.code);
+                    trackBranchSelected(b.code, b.name);
+                  }}
                   className="accent-primary"
                 />
                 <span className="text-sm font-medium">{b.name}</span>
