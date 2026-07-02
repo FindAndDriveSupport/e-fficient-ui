@@ -11,10 +11,11 @@ import { validateMobile } from "./validation";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import {
   usePageTimer,
-  trackHomePageLoad,
+  trackStep1Viewed,
+  trackStep1FieldChanged,
+  trackStep1DepositToggled,
+  trackStep1CurrentFinanceToggled,
   trackStep1Continue,
-  trackStep1DepositClicked,
-  trackStep1CurrentFinanceClicked,
 } from "@/lib/mixpanel";
 import { workerApi } from "@/lib/worker";
 import { useEmbed } from "@/contexts/EmbedContext";
@@ -27,8 +28,9 @@ interface Props {
 }
 
 export function Step1({ data, setData, next }: Props) {
-  usePageTimer("Step 1 - Personal Details");
-  useEffect(() => { trackHomePageLoad(); }, []);
+  usePageTimer("Step 1");
+  useEffect(() => { trackStep1Viewed(); }, []);
+
   const embed = useEmbed();
   const [submitting, setSubmitting] = useState(false);
   const [initialising, setInitialising] = useState(true);
@@ -50,7 +52,12 @@ export function Step1({ data, setData, next }: Props) {
     mobile.valid;
 
   const onContinue = async () => {
-    trackStep1Continue();
+    trackStep1Continue({
+      grossIncome: Number(data.grossIncome) || undefined,
+      netIncome: Number(data.netIncome) || undefined,
+      hasDeposit: data.hasDeposit,
+      hasFinance: data.hasFinance,
+    });
     setSubmitting(true);
     try {
       const res = await workerApi.preQualify(data, embed.dealer);
@@ -89,10 +96,24 @@ export function Step1({ data, setData, next }: Props) {
       <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name">
-            <Input value={data.name} onChange={(e) => u({ name: e.target.value })} placeholder="John" />
+            <Input
+              value={data.name}
+              onChange={(e) => {
+                u({ name: e.target.value });
+                trackStep1FieldChanged("name");
+              }}
+              placeholder="John"
+            />
           </Field>
           <Field label="Surname">
-            <Input value={data.surname} onChange={(e) => u({ surname: e.target.value })} placeholder="Doe" />
+            <Input
+              value={data.surname}
+              onChange={(e) => {
+                u({ surname: e.target.value });
+                trackStep1FieldChanged("surname");
+              }}
+              placeholder="Doe"
+            />
           </Field>
         </div>
 
@@ -100,7 +121,10 @@ export function Step1({ data, setData, next }: Props) {
           label="Net Salary / Take-home Salary (monthly)"
           value={data.netIncome}
           max={300000}
-          onChange={(v) => u({ netIncome: v })}
+          onChange={(v) => {
+            u({ netIncome: v });
+            trackStep1FieldChanged("netIncome", Number(v));
+          }}
         />
 
         <Field label="Mobile number">
@@ -109,7 +133,11 @@ export function Step1({ data, setData, next }: Props) {
             inputMode="numeric"
             maxLength={12}
             value={data.mobile}
-            onChange={(e) => u({ mobile: e.target.value.replace(/[^\d\s]/g, "") })}
+            onChange={(e) => {
+              const val = e.target.value.replace(/[^\d\s]/g, "");
+              u({ mobile: val });
+              trackStep1FieldChanged("mobile");
+            }}
             placeholder="082 123 4567"
           />
           {mobileDigits.length > 0 && (
@@ -126,14 +154,21 @@ export function Step1({ data, setData, next }: Props) {
               checked={data.hasDeposit}
               onCheckedChange={(v: boolean | "indeterminate") => {
                 const checked = !!v;
-                trackStep1DepositClicked(checked);
+                trackStep1DepositToggled(checked);
                 u({ hasDeposit: checked });
               }}
             />
             <span className="text-sm font-medium">I have a deposit</span>
           </label>
           {data.hasDeposit && (
-            <CurrencyInput value={data.depositAmount} onChange={(v) => u({ depositAmount: v })} placeholder="Deposit amount" />
+            <CurrencyInput
+              value={data.depositAmount}
+              onChange={(v) => {
+                u({ depositAmount: v });
+                trackStep1FieldChanged("depositAmount", Number(v));
+              }}
+              placeholder="Deposit amount"
+            />
           )}
 
           <label className="flex items-center gap-3">
@@ -141,14 +176,21 @@ export function Step1({ data, setData, next }: Props) {
               checked={data.hasFinance}
               onCheckedChange={(v: boolean | "indeterminate") => {
                 const checked = !!v;
-                trackStep1CurrentFinanceClicked(checked);
+                trackStep1CurrentFinanceToggled(checked);
                 u({ hasFinance: checked });
               }}
             />
             <span className="text-sm font-medium">I currently have finance (trade-in)</span>
           </label>
           {data.hasFinance && (
-            <CurrencyInput value={data.financeAmount} onChange={(v) => u({ financeAmount: v })} placeholder="Current monthly instalment" />
+            <CurrencyInput
+              value={data.financeAmount}
+              onChange={(v) => {
+                u({ financeAmount: v });
+                trackStep1FieldChanged("financeAmount", Number(v));
+              }}
+              placeholder="Current monthly instalment"
+            />
           )}
         </div>
       </div>
