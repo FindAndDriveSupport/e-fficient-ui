@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { StepHeader } from "./StepHeader";
@@ -11,7 +11,15 @@ import { useEmbed } from "@/contexts/EmbedContext";
 import { useDealer } from "@/contexts/DealerContext";
 import { workerApi } from "@/lib/worker";
 import { buildEdithPayload } from "./edithPayload";
-import { trackStep3SubmitApplication, trackStep3SubmitApplicationResult } from "@/lib/mixpanel";
+import {
+  usePageTimer,
+  trackStep3Viewed,
+  trackStep3FieldChanged,
+  trackStep3SubmitClicked,
+  trackStep3SubmitResult,
+  trackStep3SwitchedToManual,
+  trackBranchSelected,
+} from "@/lib/mixpanel";
 
 interface Props {
   data: WizardData;
@@ -22,6 +30,9 @@ interface Props {
 }
 
 export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }: Props) {
+  usePageTimer("Step 3 Fast");
+  useEffect(() => { trackStep3Viewed("fast"); }, []);
+
   const embed = useEmbed();
   const dealer = useDealer();
 
@@ -38,7 +49,10 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
   const [salarySlips, setSalarySlips] = useState<UploadedFile[]>([]);
   const [proofOfResidence, setProofOfResidence] = useState<UploadedFile[]>([]);
 
-  const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => setData({ ...data, [k]: v });
+  const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => {
+    setData({ ...data, [k]: v });
+    trackStep3FieldChanged(k as string);
+  };
 
   const onSubmit = async () => {
     setVehicleError(null);
@@ -61,7 +75,7 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
       return;
     }
 
-    trackStep3SubmitApplication();
+    trackStep3SubmitClicked();
     setSubmitting(true);
 
     try {
@@ -72,7 +86,7 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
       const isSuccess = (res.code === 100 || res.code === 200 || res.StatusCode === 100) && !!policyNumber;
 
       if (!isSuccess || !policyNumber) {
-        trackStep3SubmitApplicationResult(false, { fast: true, reason: "createPolicy failed" });
+        trackStep3SubmitResult(false, { fast: true, reason: "createPolicy failed" });
         toast.error("Could not create application. Please try again or use the full form.");
         setSubmitting(false);
         return;
@@ -114,10 +128,10 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
       onComplete?.();
 
       if (docsRes.success) {
-        trackStep3SubmitApplicationResult(true, { fast: true, policyNumber, salesRef: res.salesRef });
+        trackStep3SubmitResult(true, { fast: true, policyNumber, salesRef: res.salesRef });
         toast.success("Application submitted");
       } else {
-        trackStep3SubmitApplicationResult(true, {
+        trackStep3SubmitResult(true, {
           fast: true,
           policyNumber,
           salesRef: res.salesRef,
@@ -127,7 +141,7 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
       }
     } catch (err) {
       console.error(err);
-      trackStep3SubmitApplicationResult(false, { fast: true, networkError: true });
+      trackStep3SubmitResult(false, { fast: true, networkError: true });
       toast.error("Unable to connect. Please try again.");
     } finally {
       setSubmitting(false);
@@ -159,7 +173,10 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
 
       <button
         type="button"
-        onClick={onSwitchToManual}
+        onClick={() => {
+          trackStep3SwitchedToManual();
+          onSwitchToManual();
+        }}
         className="w-full rounded-xl border border-border bg-muted/40 p-3 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/60"
       >
         Prefer to fill out the full form yourself?{" "}
@@ -185,7 +202,10 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
                   name="branch"
                   value={b.code}
                   checked={selectedBranchCode === b.code}
-                  onChange={() => setSelectedBranchCode(b.code)}
+                  onChange={() => {
+                    setSelectedBranchCode(b.code);
+                    trackBranchSelected(b.code, b.name);
+                  }}
                   className="accent-primary"
                 />
                 <span className="text-sm font-medium">{b.name}</span>
@@ -247,27 +267,39 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
         <FileUpload
           label={`Copy of ${data.idType === "Passport" ? "Passport" : "ID Document"} *`}
           files={idDoc}
-          onChange={setIdDoc}
+          onChange={(files) => {
+            setIdDoc(files);
+            trackStep3FieldChanged("idDoc", files.length);
+          }}
         />
         <FileUpload
           label="3 Months Bank Statements *"
           hint="Upload your most recent 3 months of bank statements"
           multiple
           files={bankStatements}
-          onChange={setBankStatements}
+          onChange={(files) => {
+            setBankStatements(files);
+            trackStep3FieldChanged("bankStatements", files.length);
+          }}
         />
         <FileUpload
           label="3 Months Salary Slips *"
           hint="Upload your most recent 3 months of payslips"
           multiple
           files={salarySlips}
-          onChange={setSalarySlips}
+          onChange={(files) => {
+            setSalarySlips(files);
+            trackStep3FieldChanged("salarySlips", files.length);
+          }}
         />
         <FileUpload
           label="Proof of Residence *"
           hint="Not older than 3 months (utility bill, bank statement, etc.)"
           files={proofOfResidence}
-          onChange={setProofOfResidence}
+          onChange={(files) => {
+            setProofOfResidence(files);
+            trackStep3FieldChanged("proofOfResidence", files.length);
+          }}
         />
 
         {docsError && <p className="text-xs text-destructive">⚠ {docsError}</p>}
