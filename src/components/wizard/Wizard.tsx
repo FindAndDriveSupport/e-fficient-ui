@@ -11,10 +11,20 @@ import { IDNotFoundPage } from "./IDNotFoundPage";
 import { HelpButton } from "./HelpButton";
 import { initialData, type WizardData } from "./types";
 import { Toaster } from "@/components/ui/sonner";
-import { toast } from "sonner";
 import { workerApi } from "@/lib/worker";
 import { logEvent } from "@/lib/logEvent";
 import { useEmbed } from "@/contexts/EmbedContext";
+import { useDealer } from "@/contexts/DealerContext";
+import {
+  registerDealer,
+  trackPredictionStarted,
+  trackPredictionResult,
+  trackPredictionRetry,
+  trackPredictionFailed,
+  trackIdasFailed,
+  trackSystemDown,
+  trackBelowMinimum,
+} from "@/lib/mixpanel";
 
 type Phase = "step1" | "step2" | "loading" | "systemDown" | "idasFailed" | "response" | "belowMin" | "step3" | "step3fast";
 
@@ -44,6 +54,12 @@ export function Wizard() {
   const [data, setData] = useState<WizardData>(savedState?.data ?? initialData);
   const [predictionAttempt, setPredictionAttempt] = useState(0);
   const embed = useEmbed();
+  const dealer = useDealer();
+
+  // Register dealer as Mixpanel super property on mount
+  useEffect(() => {
+    if (dealer.key) registerDealer(dealer.key);
+  }, [dealer.key]);
 
   useEffect(() => {
     if (DISABLE_CACHE) return;
@@ -63,6 +79,9 @@ export function Wizard() {
   const runPrediction = async (currentData: WizardData) => {
     let amount = 0;
     let failed = false;
+
+    trackPredictionStarted(predictionAttempt);
+
     try {
       const res = await workerApi.predict(currentData, embed.dealer);
       amount = res.estimatedApprovalAmount;
@@ -78,6 +97,7 @@ export function Wizard() {
       if (e?.idasFailed) {
         setPredictionAttempt(0);
         setPhase("idasFailed");
+        trackIdasFailed();
         logEvent('error', 'idas_failure', {
           applicantId: currentData.applicantId || null,
           dealer: embed.dealer,
@@ -87,6 +107,7 @@ export function Wizard() {
       if (e?.systemDown || e?.code === 502) {
         setPredictionAttempt(0);
         setPhase("systemDown");
+        trackSystemDown();
         logEvent('error', 'prediction_system_down', {
           applicantId: currentData.applicantId || null,
           dealer: embed.dealer,
@@ -104,6 +125,7 @@ export function Wizard() {
     if (!failed) {
       setPredictionAttempt(0);
       if (amount <= 0 || amount < MIN_LOAN) {
+        trackBelowMinimum(amount, MIN_LOAN);
         logEvent('info', 'below_minimum_loan', {
           amount,
           minLoan: MIN_LOAN,
@@ -112,13 +134,19 @@ export function Wizard() {
         }, embed.dealer);
         setPhase("belowMin");
       } else {
+        trackPredictionResult(
+          data.predictionLabel ?? "In progress",
+          amount
+        );
         setPhase("response");
       }
     } else {
       if (predictionAttempt === 0) {
         setPredictionAttempt(1);
+        trackPredictionRetry(1);
       } else {
         setPredictionAttempt(2);
+        trackPredictionFailed();
         logEvent('error', 'prediction_retries_exhausted', {
           applicantId: currentData.applicantId || null,
           dealer: embed.dealer,
