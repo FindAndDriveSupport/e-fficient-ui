@@ -5,6 +5,7 @@ type MP = {
   track?: (event: string, props?: Record<string, unknown>) => void;
   time_event?: (event: string) => void;
   register?: (props: Record<string, unknown>) => void;
+  identify?: (id: string) => void;
 };
 
 function getMP(): MP | undefined {
@@ -22,6 +23,9 @@ export const mp = {
   register(props: Record<string, unknown>) {
     try { getMP()?.register?.(props); } catch (e) { console.warn("[Mixpanel] register", e); }
   },
+  identify(id: string) {
+    try { getMP()?.identify?.(id); } catch (e) { console.warn("[Mixpanel] identify", e); }
+  },
 };
 
 /** Times a step from mount to unmount and fires `Time Spent - <stepName>` */
@@ -37,41 +41,111 @@ export function usePageTimer(stepName: string) {
   }, [stepName]);
 }
 
-// ── Widget engagement ──────────────────────────────────────────
+// ── Super properties ──────────────────────────────────────────────────────────
 
-/** Fire once when the widget is opened (floating button clicked / iframe loaded) */
-export function trackWidgetOpened(dealer?: string) {
-  mp.track("Widget Opened", { dealer });
+/** Register dealer as a super property so every event includes it */
+export function registerDealer(dealer: string) {
+  mp.register({ dealer });
 }
 
-// ── Page / step views ────────────────────────────────────────────
+// ── Widget ────────────────────────────────────────────────────────────────────
 
-export const trackHomePageLoad = () => mp.track("Home Page Loaded");
+export const trackWidgetOpened = (dealer?: string) =>
+  mp.track("Widget Opened", { dealer });
 
-// ── Step 1 ──────────────────────────────────────────────────────
+// ── Step 1 ────────────────────────────────────────────────────────────────────
 
-export const trackStep1Continue = () => mp.track("Step 1 - Continue Clicked");
+export const trackStep1Viewed = () =>
+  mp.track("Step 1 Viewed");
 
-/** Fire when the user toggles "I have a deposit" on Step 1 */
-export const trackStep1DepositClicked = (checked: boolean) =>
-  mp.track("Step 1 - I Have A Deposit Clicked", { checked });
+export const trackStep1FieldChanged = (field: string, value?: unknown) =>
+  mp.track("Step 1 Field Changed", { field, value });
 
-/** Fire when the user toggles "I currently have finance" on Step 1 */
-export const trackStep1CurrentFinanceClicked = (checked: boolean) =>
-  mp.track("Step 1 - I Currently Have Finance Clicked", { checked });
+export const trackStep1DepositToggled = (checked: boolean) =>
+  mp.track("Step 1 Deposit Toggled", { checked });
 
-// ── Step 2 ──────────────────────────────────────────────────────
+export const trackStep1CurrentFinanceToggled = (checked: boolean) =>
+  mp.track("Step 1 Current Finance Toggled", { checked });
 
-export const trackStep2Submit = () => mp.track("Step 2 - Submit Clicked");
+export const trackStep1Continue = (data: {
+  grossIncome?: number;
+  netIncome?: number;
+  hasDeposit?: boolean;
+  hasFinance?: boolean;
+}) => mp.track("Step 1 Completed", data);
 
-// ── Step 3 ──────────────────────────────────────────────────────
+// ── Step 2 ────────────────────────────────────────────────────────────────────
 
-/** Fire when Step 3 first mounts (start of full application) */
-export const trackStep3Started = () => mp.track("Step 3 - Application Started");
+export const trackStep2Viewed = () =>
+  mp.track("Step 2 Viewed");
 
-/** Fire when the user clicks Submit Application (before the API call resolves) */
-export const trackStep3SubmitApplication = () => mp.track("Step 3 - Submit Application Clicked");
+export const trackStep2FieldChanged = (field: string, value?: unknown) =>
+  mp.track("Step 2 Field Changed", { field, value });
 
-/** Fire when the application submission completes (success or failure) */
-export const trackStep3SubmitApplicationResult = (success: boolean, extra: Record<string, unknown> = {}) =>
-  mp.track("Step 3 - Submit Application Completed", { success, ...extra });
+export const trackStep2Submit = (data: {
+  idType?: string;
+  hasMarriage?: boolean;
+  employmentType?: string;
+}) => mp.track("Step 2 Submitted", data);
+
+export const trackStep2Back = () =>
+  mp.track("Step 2 Back Clicked");
+
+// ── Loading / Prediction ──────────────────────────────────────────────────────
+
+export const trackPredictionStarted = (attempt: number) =>
+  mp.track("Prediction Started", { attempt });
+
+export const trackPredictionResult = (outcome: string, amount: number) =>
+  mp.track("Prediction Result", { outcome, estimated_approval_amount: amount });
+
+export const trackPredictionRetry = (attempt: number) =>
+  mp.track("Prediction Retry", { attempt });
+
+export const trackPredictionFailed = () =>
+  mp.track("Prediction Failed - Retries Exhausted");
+
+export const trackIdasFailed = () =>
+  mp.track("IDAS Bureau Failure");
+
+export const trackSystemDown = () =>
+  mp.track("System Down");
+
+// ── Response page ─────────────────────────────────────────────────────────────
+
+export const trackResponsePageViewed = (tier: string, amount: number) =>
+  mp.track("Response Page Viewed", { tier, estimated_approval_amount: amount });
+
+export const trackResponseContinueClicked = (tier: string) =>
+  mp.track("Response Continue Clicked", { tier });
+
+// ── Below minimum ─────────────────────────────────────────────────────────────
+
+export const trackBelowMinimum = (amount: number, minLoan: number) =>
+  mp.track("Below Minimum Loan", { amount, min_loan: minLoan });
+
+// ── Step 3 ────────────────────────────────────────────────────────────────────
+
+export const trackStep3Viewed = (mode: "manual" | "fast" | "bike") =>
+  mp.track("Step 3 Viewed", { mode });
+
+export const trackStep3FieldChanged = (field: string, value?: unknown) =>
+  mp.track("Step 3 Field Changed", { field, value });
+
+export const trackStep3SwitchedToFast = () =>
+  mp.track("Step 3 Switched to Fast Mode");
+
+export const trackStep3SwitchedToManual = () =>
+  mp.track("Step 3 Switched to Manual Mode");
+
+export const trackStep3SubmitClicked = () =>
+  mp.track("Step 3 Submit Clicked");
+
+export const trackStep3SubmitResult = (success: boolean, extra: Record<string, unknown> = {}) =>
+  mp.track("Step 3 Submit Result", { success, ...extra });
+
+export const trackStep3Abandoned = (field?: string) =>
+  mp.track("Step 3 Abandoned", { last_field: field ?? null });
+
+export const trackBranchSelected = (branchCode: string, branchName: string) =>
+  mp.track("Branch Selected", { branch_code: branchCode, branch_name: branchName });
