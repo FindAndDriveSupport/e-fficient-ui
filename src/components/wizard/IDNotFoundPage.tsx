@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { AlertCircle } from "lucide-react";
+import { usePageTimer, mp } from "@/lib/mixpanel";
 
 interface IDNotFoundPageProps {
   onRetry: () => void;
@@ -6,6 +8,11 @@ interface IDNotFoundPageProps {
 }
 
 export function IDNotFoundPage({ onRetry, onProceed }: IDNotFoundPageProps) {
+  usePageTimer("ID Not Found Page");
+  useEffect(() => {
+    mp.track("ID Not Found Page Viewed");
+  }, []);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] px-6 py-10 text-center">
       <div
@@ -24,7 +31,10 @@ export function IDNotFoundPage({ onRetry, onProceed }: IDNotFoundPageProps) {
       </p>
 
       <button
-        onClick={onRetry}
+        onClick={() => {
+          mp.track("ID Not Found - Retry Clicked");
+          onRetry();
+        }}
         className="w-full max-w-xs rounded-xl px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-elegant)] mb-3"
         style={{ backgroundImage: "var(--gradient-primary)" }}
       >
@@ -32,7 +42,10 @@ export function IDNotFoundPage({ onRetry, onProceed }: IDNotFoundPageProps) {
       </button>
 
       <button
-        onClick={onProceed}
+        onClick={() => {
+          mp.track("ID Not Found - Proceed to Application Clicked");
+          onProceed();
+        }}
         className="w-full max-w-xs rounded-xl px-6 py-3 text-sm font-semibold border border-border bg-background text-foreground hover:bg-muted"
       >
         Continue to application
