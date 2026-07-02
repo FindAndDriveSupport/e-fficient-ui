@@ -1,5 +1,7 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
+import { usePageTimer, mp } from "@/lib/mixpanel";
 
 interface Props {
   onDone: () => void;
@@ -15,12 +17,20 @@ const TIPS: Array<{ title: string; body: string }> = [
 ];
 
 export function BelowMinimumPage({ onDone, onClose }: Props) {
+  usePageTimer("Below Minimum Page");
+  useEffect(() => {
+    mp.track("Below Minimum Page Viewed");
+  }, []);
+
   return (
     <div className="relative space-y-6">
       {onClose && (
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => {
+            mp.track("Below Minimum Page Closed");
+            onClose();
+          }}
           aria-label="Close"
           className="absolute -top-2 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-card shadow-[var(--shadow-soft)] text-foreground hover:bg-muted"
         >
@@ -53,7 +63,10 @@ export function BelowMinimumPage({ onDone, onClose }: Props) {
         size="lg"
         variant="outline"
         className="w-full rounded-xl bg-card py-6 text-base font-semibold text-primary shadow-[var(--shadow-soft)]"
-        onClick={onDone}
+        onClick={() => {
+          mp.track("Below Minimum Page Done Clicked");
+          onDone();
+        }}
       >
         Done
       </Button>
