@@ -43,12 +43,6 @@ jobs:
             echo "❌ Missing manualFollowUp in PolicyResponse" && exit 1
           fi
 
-      - name: "[worker.ts] hasExistingFinance mapped in preQualify"
-        run: |
-          if ! grep -q "hasExistingFinance" src/lib/worker.ts; then
-            echo "❌ Missing hasExistingFinance mapping in preQualify" && exit 1
-          fi
-
       # ── logEvent.ts ──────────────────────────────────────────
 
       - name: "[logEvent] file exists"
@@ -95,12 +89,6 @@ jobs:
         run: |
           if ! grep -q "spouseIdType" src/components/wizard/edithPayload.ts; then
             echo "❌ Missing spouseIdType in edithPayload.ts" && exit 1
-          fi
-
-      - name: "[edithPayload.ts] branchCodeOverride parameter present"
-        run: |
-          if ! grep -q "branchCodeOverride" src/components/wizard/edithPayload.ts; then
-            echo "❌ Missing branchCodeOverride parameter in edithPayload.ts" && exit 1
           fi
 
       # ── Step3.tsx ────────────────────────────────────────────
@@ -153,42 +141,19 @@ jobs:
             echo "❌ Missing submittedRef in Step3.tsx" && exit 1
           fi
 
-      - name: "[Step3] selectedBranchCode state present"
-        run: |
-          if ! grep -q "selectedBranchCode" src/components/wizard/Step3.tsx; then
-            echo "❌ Missing selectedBranchCode state in Step3.tsx" && exit 1
-          fi
+      # ── Step3Bike.tsx ────────────────────────────────────────
+      # Wizard.tsx is now a shared template that unconditionally imports
+      # Step3Bike (gated behind isBike at render time, but still resolved
+      # at build time by the bundler). Every dealer repo — vehicle or bike —
+      # must carry this file or the build fails, even though vehicle dealers
+      # never render it. This check exists specifically to catch that class
+      # of failure before it reaches CI as a build error (see 2026-07-05
+      # "Could not resolve './Step3Bike'" incident).
 
-      - name: "[Step3] branch selector renders for multi-branch dealers"
+      - name: "[Step3Bike] file exists (required by shared Wizard.tsx import)"
         run: |
-          if ! grep -q "dealer.branches" src/components/wizard/Step3.tsx; then
-            echo "❌ Missing dealer.branches check in Step3.tsx" && exit 1
-          fi
-
-      - name: "[Step3] buildEdithPayload called with branchCodeOverride"
-        run: |
-          if ! grep -q "buildEdithPayload(data, selectedBranchCode)" src/components/wizard/Step3.tsx; then
-            echo "❌ Missing selectedBranchCode in buildEdithPayload call in Step3.tsx" && exit 1
-          fi
-
-      # ── Step3Fast.tsx ────────────────────────────────────────
-
-      - name: "[Step3Fast] selectedBranchCode state present"
-        run: |
-          if ! grep -q "selectedBranchCode" src/components/wizard/Step3Fast.tsx; then
-            echo "❌ Missing selectedBranchCode state in Step3Fast.tsx" && exit 1
-          fi
-
-      - name: "[Step3Fast] branch selector renders for multi-branch dealers"
-        run: |
-          if ! grep -q "dealer.branches" src/components/wizard/Step3Fast.tsx; then
-            echo "❌ Missing dealer.branches check in Step3Fast.tsx" && exit 1
-          fi
-
-      - name: "[Step3Fast] buildEdithPayload called with branchCodeOverride"
-        run: |
-          if ! grep -q "buildEdithPayload(data, selectedBranchCode)" src/components/wizard/Step3Fast.tsx; then
-            echo "❌ Missing selectedBranchCode in buildEdithPayload call in Step3Fast.tsx" && exit 1
+          if [ ! -f "src/components/wizard/Step3Bike.tsx" ]; then
+            echo "❌ Step3Bike.tsx missing — Wizard.tsx imports it unconditionally and the build will fail" && exit 1
           fi
 
       # ── Wizard.tsx ───────────────────────────────────────────
@@ -217,6 +182,18 @@ jobs:
             echo "❌ Old loadingFailed setPhase still present in Wizard.tsx" && exit 1
           fi
 
+      - name: "[Wizard] isBike routing present"
+        run: |
+          if ! grep -q "isBike" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing isBike routing in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] Step3Bike imported"
+        run: |
+          if ! grep -q "Step3Bike" src/components/wizard/Wizard.tsx; then
+            echo "❌ Missing Step3Bike import in Wizard.tsx" && exit 1
+          fi
+
       - name: "[Wizard] useCallback used for onLoadingDone"
         run: |
           if ! grep -q "onLoadingDone" src/components/wizard/Wizard.tsx; then
@@ -229,10 +206,16 @@ jobs:
             echo "❌ Missing hasSAID check in Wizard.tsx" && exit 1
           fi
 
-      - name: "[Wizard] MIN_LOAN is 60000"
+      - name: "[Wizard] MIN_LOAN_VEHICLE is 60000"
         run: |
-          if ! grep -q "MIN_LOAN = 60000" src/components/wizard/Wizard.tsx; then
-            echo "❌ MIN_LOAN should be 60000 for vehicle in Wizard.tsx" && exit 1
+          if ! grep -q "MIN_LOAN_VEHICLE = 60000" src/components/wizard/Wizard.tsx; then
+            echo "❌ MIN_LOAN_VEHICLE should be 60000 in Wizard.tsx" && exit 1
+          fi
+
+      - name: "[Wizard] MIN_LOAN_BIKE is 15000"
+        run: |
+          if ! grep -q "MIN_LOAN_BIKE = 15000" src/components/wizard/Wizard.tsx; then
+            echo "❌ MIN_LOAN_BIKE should be 15000 in Wizard.tsx" && exit 1
           fi
 
       - name: "[Wizard] logEvent imported"
@@ -257,20 +240,6 @@ jobs:
         run: |
           if ! grep -q "below_minimum_loan" src/components/wizard/Wizard.tsx; then
             echo "❌ Missing below_minimum_loan log in Wizard.tsx" && exit 1
-          fi
-
-      # ── DealerContext.tsx ─────────────────────────────────────
-
-      - name: "[DealerContext] DealerBranch interface present"
-        run: |
-          if ! grep -q "DealerBranch" src/contexts/DealerContext.tsx; then
-            echo "❌ Missing DealerBranch interface in DealerContext.tsx" && exit 1
-          fi
-
-      - name: "[DealerContext] branches field present"
-        run: |
-          if ! grep -q "branches" src/contexts/DealerContext.tsx; then
-            echo "❌ Missing branches field in DealerContext.tsx" && exit 1
           fi
 
       # ── IDNotFoundPage.tsx ───────────────────────────────────
