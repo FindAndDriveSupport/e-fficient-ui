@@ -6,6 +6,7 @@ import { ResponsePage, type ResponseTier } from "./ResponsePage";
 import { BelowMinimumPage } from "./BelowMinimumPage";
 import { Step3 } from "./Step3";
 import { Step3Fast } from "./Step3Fast";
+import { Step3Bike } from "./Step3Bike";
 import { SystemDownPage } from "./SystemDownPage";
 import { IDNotFoundPage } from "./IDNotFoundPage";
 import { HelpButton } from "./HelpButton";
@@ -34,27 +35,38 @@ function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
   return "in_progress";
 }
 
-const MIN_LOAN = 60000;
+// Minimum approval amount thresholds below which the applicant is routed to
+// BelowMinimumPage instead of the normal response flow. These differ by
+// finance type — a R15k floor makes sense for bikes but would let far too
+// many under-financed vehicle applicants through, so this must branch on
+// dealer.financeType rather than be a single shared constant.
+const MIN_LOAN_VEHICLE = 60000;
+const MIN_LOAN_BIKE = 15000;
 
 const STORAGE_KEY = `wizard_state_${import.meta.env.VITE_DEFAULT_DEALER || 'default'}`;
-const DISABLE_CACHE = import.meta.env.VITE_DISABLE_CACHE === 'true';
 
 export function Wizard() {
   const savedState = (() => {
-    if (DISABLE_CACHE) return null;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   })();
 
-  const safePhase = (savedState?.phase === "loading" || savedState?.phase === "loadingFailed" || savedState?.phase === "systemDown" || savedState?.phase === "idasFailed") ? "step2" : savedState?.phase;
+  const safePhase = (
+    savedState?.phase === "loading" ||
+    savedState?.phase === "loadingFailed" ||
+    savedState?.phase === "systemDown" ||
+    savedState?.phase === "idasFailed"
+  ) ? "step2" : savedState?.phase;
 
   const [phase, setPhase] = useState<Phase>(safePhase ?? "step1");
   const [data, setData] = useState<WizardData>(savedState?.data ?? initialData);
   const [predictionAttempt, setPredictionAttempt] = useState(0);
   const embed = useEmbed();
   const dealer = useDealer();
+  const isBike = dealer.financeType === "bike";
+  const MIN_LOAN = isBike ? MIN_LOAN_BIKE : MIN_LOAN_VEHICLE;
 
   // Register dealer as Mixpanel super property on mount
   useEffect(() => {
@@ -62,7 +74,6 @@ export function Wizard() {
   }, [dealer.key]);
 
   useEffect(() => {
-    if (DISABLE_CACHE) return;
     if (phase === "belowMin") {
       localStorage.removeItem(STORAGE_KEY);
       return;
@@ -72,9 +83,7 @@ export function Wizard() {
     } catch { /* storage full or unavailable */ }
   }, [phase, data]);
 
-  const onComplete = () => {
-    if (!DISABLE_CACHE) localStorage.removeItem(STORAGE_KEY);
-  };
+  const onComplete = () => localStorage.removeItem(STORAGE_KEY);
 
   const runPrediction = async (currentData: WizardData) => {
     let amount = 0;
@@ -160,7 +169,9 @@ export function Wizard() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-xl px-4 py-6 sm:py-10">
-        {phase === "step1" && <Step1 data={data} setData={setData} next={() => setPhase("step2")} />}
+        {phase === "step1" && (
+          <Step1 data={data} setData={setData} next={() => setPhase("step2")} />
+        )}
         {phase === "step2" && (
           <Step2
             data={data}
@@ -199,11 +210,19 @@ export function Wizard() {
         )}
         {phase === "belowMin" && (
           <BelowMinimumPage
-            onDone={() => { if (!DISABLE_CACHE) localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
-            onClose={() => { if (!DISABLE_CACHE) localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
+            onDone={() => { localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
+            onClose={() => { localStorage.removeItem(STORAGE_KEY); setPhase("step1"); }}
           />
         )}
-        {phase === "step3" && (
+        {phase === "step3" && isBike && (
+          <Step3Bike
+            data={data}
+            setData={setData}
+            back={() => setPhase("response")}
+            onComplete={onComplete}
+          />
+        )}
+        {phase === "step3" && !isBike && (
           <Step3
             data={data}
             setData={setData}
@@ -212,7 +231,7 @@ export function Wizard() {
             onComplete={onComplete}
           />
         )}
-        {phase === "step3fast" && (
+        {phase === "step3fast" && !isBike && (
           <Step3Fast
             data={data}
             setData={setData}
