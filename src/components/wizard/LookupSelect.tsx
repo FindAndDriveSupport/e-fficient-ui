@@ -7,26 +7,30 @@ interface Props {
   onChange: (v: string) => void;
   endpoint: string;
   placeholder?: string;
+  disabled?: boolean;
 }
 
-export function LookupSelect({ value, onChange, endpoint, placeholder = "Search..." }: Props) {
+export function LookupSelect({ value, onChange, endpoint, placeholder = "Search...", disabled = false }: Props) {
   const [allOptions, setAllOptions] = useState<string[]>([]);
   const [search, setSearch] = useState(value || "");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Load all options once on mount
+  // Load all options whenever the endpoint changes (e.g. model list
+  // refetching when the selected make changes)
   useEffect(() => {
-    if (!WORKER) return;
-    fetch(`${WORKER}${endpoint}?q=`)
+    if (!WORKER || disabled) { setLoading(false); return; }
+    setLoading(true);
+    const separator = endpoint.includes("?") ? "&" : "?";
+    fetch(`${WORKER}${endpoint}${separator}q=`)
       .then((r) => r.json())
       .then((data) => {
         setAllOptions((data.results || []).map((r: { name: string }) => r.name));
       })
       .catch(() => setAllOptions([]))
       .finally(() => setLoading(false));
-  }, [endpoint]);
+  }, [endpoint, disabled]);
 
   // Sync search input when value changes externally
   useEffect(() => {
@@ -38,7 +42,6 @@ export function LookupSelect({ value, onChange, endpoint, placeholder = "Search.
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
-        // If user typed something that doesn't match, reset to last valid value
         if (!allOptions.includes(search)) {
           setSearch(value || "");
         }
@@ -67,9 +70,9 @@ export function LookupSelect({ value, onChange, endpoint, placeholder = "Search.
           setSearch(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
-        placeholder={loading ? "Loading..." : placeholder}
-        disabled={loading}
+        onFocus={() => !disabled && setOpen(true)}
+        placeholder={disabled ? placeholder : loading ? "Loading..." : placeholder}
+        disabled={loading || disabled}
         autoComplete="off"
         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       />
