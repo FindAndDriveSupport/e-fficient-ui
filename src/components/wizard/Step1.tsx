@@ -25,20 +25,24 @@ interface Props {
   data: WizardData;
   setData: (d: WizardData) => void;
   next: () => void;
+  skipInitialSpinner?: boolean;
 }
 
-export function Step1({ data, setData, next }: Props) {
+export function Step1({ data, setData, next, skipInitialSpinner = false }: Props) {
   usePageTimer("Step 1");
   useEffect(() => { trackStep1Viewed(); }, []);
 
   const embed = useEmbed();
   const [submitting, setSubmitting] = useState(false);
-  const [initialising, setInitialising] = useState(true);
+  // If the parent Wizard already showed the initial spinner (e.g. on
+  // VehicleSelection), skip showing it again here.
+  const [initialising, setInitialising] = useState(!skipInitialSpinner);
 
   useEffect(() => {
+    if (skipInitialSpinner) return;
     const t = setTimeout(() => setInitialising(false), 800);
     return () => clearTimeout(t);
-  }, []);
+  }, [skipInitialSpinner]);
 
   const u = (patch: Partial<WizardData>) => setData({ ...data, ...patch });
   const mobile = validateMobile(data.mobile);
