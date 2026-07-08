@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { VehicleSelection } from "./VehicleSelection";
 import { Step1 } from "./Step1";
 import { Step2 } from "./Step2";
 import { LoadingPage } from "./LoadingPage";
@@ -27,7 +28,7 @@ import {
   trackBelowMinimum,
 } from "@/lib/mixpanel";
 
-type Phase = "step1" | "step2" | "loading" | "systemDown" | "idasFailed" | "response" | "belowMin" | "step3" | "step3fast";
+type Phase = "vehicleSelect" | "step1" | "step2" | "loading" | "systemDown" | "idasFailed" | "response" | "belowMin" | "step3" | "step3fast";
 
 function labelToTier(label: WizardData["predictionLabel"]): ResponseTier {
   if (label === "Great news") return "great";
@@ -60,9 +61,10 @@ export function Wizard() {
     savedState?.phase === "idasFailed"
   ) ? "step2" : savedState?.phase;
 
-  const [phase, setPhase] = useState<Phase>(safePhase ?? "step1");
+  const [phase, setPhase] = useState<Phase>(safePhase ?? "vehicleSelect");
   const [data, setData] = useState<WizardData>(savedState?.data ?? initialData);
   const [predictionAttempt, setPredictionAttempt] = useState(0);
+  const [appInitialising, setAppInitialising] = useState(true);
   const embed = useEmbed();
   const dealer = useDealer();
   const isBike = dealer.financeType === "bike";
@@ -71,6 +73,22 @@ export function Wizard() {
   // Register dealer as Mixpanel super property on mount
   useEffect(() => {
     if (dealer.key) registerDealer(dealer.key);
+  }, [dealer.key]);
+
+  // Initial spinner — shown once on the very first page the user sees,
+  // whether that's VehicleSelection or Step1 depending on dealer config.
+  useEffect(() => {
+    const t = setTimeout(() => setAppInitialising(false), 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Once dealer config resolves, decide the correct starting phase —
+  // only applies if there's no restored cached phase already in play.
+  useEffect(() => {
+    if (savedState?.phase) return; // don't override a resumed session
+    if (dealer.key === "default") return; // wait for real config to load
+    const wantsVehicleSelect = dealer.features?.showVehicleSelection;
+    setPhase(wantsVehicleSelect ? "vehicleSelect" : "step1");
   }, [dealer.key]);
 
   useEffect(() => {
@@ -169,6 +187,14 @@ export function Wizard() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-xl px-4 py-6 sm:py-10">
+        {phase === "vehicleSelect" && (
+          <VehicleSelection
+            data={data}
+            setData={setData}
+            next={() => { setAppInitialising(false); setPhase("step1"); }}
+            initialising={appInitialising}
+          />
+        )}
         {phase === "step1" && (
           <Step1 data={data} setData={setData} next={() => setPhase("step2")} />
         )}
