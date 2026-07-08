@@ -196,7 +196,12 @@ export function Wizard() {
           />
         )}
         {phase === "step1" && (
-          <Step1 data={data} setData={setData} next={() => setPhase("step2")} />
+          <Step1
+            data={data}
+            setData={setData}
+            next={() => setPhase("step2")}
+            skipInitialSpinner={dealer.features?.showVehicleSelection}
+          />
         )}
         {phase === "step2" && (
           <Step2
