@@ -2,10 +2,9 @@ import type { WizardData } from "./types";
 
 /**
  * Maps WizardData → Edith CreatePolicy payload.
- * Shared between Step3 (Manual), Step3Bike, and Step3Fast.
- * Optional branchCodeOverride used for multi-branch dealer groups.
+ * Shared between Step3 (Manual) and Step3Fast.
  */
-export function buildEdithPayload(data: WizardData, branchCodeOverride?: string) {
+export function buildEdithPayload(data: WizardData) {
   const isMarried = data.maritalStatus === "Married";
   return {
     title: data.title?.toUpperCase(),
@@ -18,7 +17,7 @@ export function buildEdithPayload(data: WizardData, branchCodeOverride?: string)
     educationLevel: data.educationLevel || undefined,
     maritalStatus: data.maritalStatus?.toUpperCase(),
     marriageType: isMarried ? data.marriageType || undefined : undefined,
-    marriageDate: isMarried ? data.marriageDate || undefined : undefined,
+    marriageDate: isMarried && data.marriageDate ? formatEdithDate(data.marriageDate) : undefined,
     spouseFirstName: isMarried ? data.spouseFirstName || undefined : undefined,
     spouseLastName: isMarried ? data.spouseLastName || undefined : undefined,
     spouseIdNumber: isMarried ? data.spouseIdNumber || undefined : undefined,
@@ -55,7 +54,6 @@ export function buildEdithPayload(data: WizardData, branchCodeOverride?: string)
     vehicleMake: data.vehicleMake,
     vehicleModel: data.vehicleModel,
     vehicleMm: data.vehicleMm,
-    vehicleCondition: data.vehicleCondition,
     estimatedApprovalAmount: data.estimatedApprovalAmount ??
       (data.idType !== "RSA ID" ? Number(data.preQualTotal) || undefined : undefined),
     preQualTotal: data.preQualTotal,
@@ -64,8 +62,6 @@ export function buildEdithPayload(data: WizardData, branchCodeOverride?: string)
     bankName: data.bankName || undefined,
     accountType: data.accountType || undefined,
     bankAccountNumber: data.bankAccountNumber || undefined,
-    // Branch code override for multi-branch dealer groups
-    branchCodeOverride: branchCodeOverride || undefined,
   };
 }
 
