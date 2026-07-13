@@ -55,6 +55,7 @@ export function buildEdithPayload(data: WizardData, branchCodeOverride?: string)
     vehicleMake: data.vehicleMake,
     vehicleModel: data.vehicleModel,
     vehicleMm: data.vehicleMm,
+    vehicleCondition: data.vehicleCondition,
     estimatedApprovalAmount: data.estimatedApprovalAmount ??
       (data.idType !== "RSA ID" ? Number(data.preQualTotal) || undefined : undefined),
     preQualTotal: data.preQualTotal,
