@@ -14,12 +14,16 @@ interface Props {
   initialising?: boolean;
 }
 
+// NOTE: WizardData (./types) needs a new field added for this to typecheck:
+//   vehicleCondition?: "new" | "used";
+
 export function VehicleSelection({ data, setData, next, initialising = false }: Props) {
   usePageTimer("Vehicle Selection");
   useEffect(() => { mp.track("Vehicle Selection Viewed"); }, []);
 
   const [make, setMake] = useState(data.vehicleMake ?? "");
   const [model, setModel] = useState(data.vehicleModel ?? "");
+  const [condition, setCondition] = useState<"new" | "used" | "">(data.vehicleCondition ?? "");
 
   // Reset model whenever make changes to something different
   useEffect(() => {
@@ -27,6 +31,11 @@ export function VehicleSelection({ data, setData, next, initialising = false }: 
       setModel("");
     }
   }, [make]);
+
+  const onConditionChange = (v: "new" | "used") => {
+    setCondition(v);
+    mp.track("Vehicle Selection - Condition Selected", { condition: v });
+  };
 
   const onMakeChange = (v: string) => {
     setMake(v);
@@ -39,8 +48,13 @@ export function VehicleSelection({ data, setData, next, initialising = false }: 
   };
 
   const onContinue = () => {
-    setData({ ...data, vehicleMake: make || undefined, vehicleModel: model || undefined });
-    mp.track("Vehicle Selection Completed", { make, model, skipped: false });
+    setData({
+      ...data,
+      vehicleCondition: condition || undefined,
+      vehicleMake: make || undefined,
+      vehicleModel: model || undefined,
+    });
+    mp.track("Vehicle Selection Completed", { condition, make, model, skipped: false });
     next();
   };
 
@@ -69,8 +83,38 @@ export function VehicleSelection({ data, setData, next, initialising = false }: 
         title="Which vehicle are you interested in?"
         subtitle="This helps us tailor your estimate — you can skip this if you're not sure yet."
       />
-
       <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Condition</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onConditionChange("new")}
+              aria-pressed={condition === "new"}
+              className={`rounded-xl border py-3 text-sm font-semibold transition-colors ${
+                condition === "new"
+                  ? "border-transparent text-white"
+                  : "border-border bg-background text-foreground hover:bg-muted"
+              }`}
+              style={condition === "new" ? { backgroundImage: "var(--gradient-primary)" } : undefined}
+            >
+              New
+            </button>
+            <button
+              type="button"
+              onClick={() => onConditionChange("used")}
+              aria-pressed={condition === "used"}
+              className={`rounded-xl border py-3 text-sm font-semibold transition-colors ${
+                condition === "used"
+                  ? "border-transparent text-white"
+                  : "border-border bg-background text-foreground hover:bg-muted"
+              }`}
+              style={condition === "used" ? { backgroundImage: "var(--gradient-primary)" } : undefined}
+            >
+              Used
+            </button>
+          </div>
+        </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Vehicle make</Label>
           <LookupSelect
@@ -80,7 +124,6 @@ export function VehicleSelection({ data, setData, next, initialising = false }: 
             placeholder="Search make…"
           />
         </div>
-
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Vehicle model</Label>
           <LookupSelect
@@ -92,13 +135,12 @@ export function VehicleSelection({ data, setData, next, initialising = false }: 
           />
         </div>
       </div>
-
       <div className="space-y-2">
         <Button
           size="lg"
           className="w-full rounded-xl py-6 text-base font-semibold shadow-[var(--shadow-elegant)]"
           style={{ backgroundImage: "var(--gradient-primary)" }}
-          disabled={!make || !model}
+          disabled={!condition || !make || !model}
           onClick={onContinue}
         >
           Continue
