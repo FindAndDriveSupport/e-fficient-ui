@@ -5,6 +5,16 @@ on:
     types: [sync-from-dev]
   workflow_dispatch:
 
+# Only one run of this workflow at a time. If a second trigger arrives while
+# one is already in progress (e.g. a manual re-run, or two pushes to
+# e-fficient-ui-dev in quick succession), it queues behind the current run
+# instead of checking out in parallel and racing it for the push to main —
+# which is what was causing the repeated
+# "! [rejected] main -> main (fetch first)" failures.
+concurrency:
+  group: sync-from-dev
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -51,10 +61,9 @@ jobs:
           git commit -m "chore: sync latest changes from e-fficient-ui-dev"
 
           # Rebase onto the latest remote main before pushing, with a few
-          # retries — protects against another push landing on main between
-          # this job's checkout and its push (e.g. an overlapping run, or a
-          # manual commit), which otherwise rejects the push outright with
-          # "! [rejected] main -> main (fetch first)".
+          # retries — kept as a backstop even with concurrency control above,
+          # since a manual push from a person (not this workflow) could still
+          # land on main between checkout and push.
           for attempt in 1 2 3; do
             git fetch origin main
             if git rebase origin/main; then
