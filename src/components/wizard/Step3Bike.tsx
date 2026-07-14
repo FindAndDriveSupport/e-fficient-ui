@@ -16,7 +16,6 @@ import { TypingInput } from "./TypingInput";
 import { LookupSelect } from "./LookupSelect";
 import { EdithErrorBanner } from "./EdithErrorBanner";
 import { FieldErrorHint } from "./FieldErrorHint";
-import { FileUpload, type UploadedFile } from "./FileUpload";
 import { validateSAID } from "./validation";
 import type { WizardData } from "./types";
 import { CheckCircle2, Loader2 } from "lucide-react";
@@ -32,6 +31,7 @@ import {
   trackStep3SubmitClicked,
   trackStep3SubmitResult,
   trackStep3Abandoned,
+  trackStep3SwitchedToFast,
   trackBranchSelected,
 } from "@/lib/mixpanel";
 import { buildEdithPayload } from "./edithPayload";
@@ -50,7 +50,6 @@ const MARRIAGE_TYPES = [
 ];
 const RESIDENTIAL = ["Owner (no bond)", "Owner (bonded)", "Tenant", "Other"];
 const EMPLOYMENT = ["Employed", "Self-employed", "Contract", "Pensioner/Retired"] as const;
-const ACCOUNT_TYPES = ["CHEQUE", "SAVINGS", "TRANSMISSION"];
 const EDUCATION_LEVELS = [
   "NO SCHOOLING",
   "INCOMPLETE PRIMARY",
@@ -82,46 +81,19 @@ const EDITH_MAP: Record<string, string> = {
   EFTDepositValue: "confirmDeposit",
 };
 
-interface Bank {
-  id: string | number;
-  name: string;
-  branch_code: string;
-}
-
-// Maps Seriti's raw title values (including Afrikaans variants) to the values
-// this form actually offers in the Title <Select>. Anything unrecognised is
-// left blank rather than forced into an invalid value, since an invalid
-// title silently fails Edith submission downstream.
-const TITLE_MAP: Record<string, string> = {
-  MR: "Mr", MNR: "Mr",
-  MRS: "Mrs", MEV: "Mrs", MEVR: "Mrs",
-  MISS: "Miss", MEJ: "Miss", MEJUFFROU: "Miss",
-  MS: "Ms", ME: "Ms",
-  DR: "Dr",
-  PROF: "Prof",
-  ADV: "Adv",
-  HON: "Hon",
-  REV: "Rev",
-};
-
 function capitalise(s?: string) {
   if (!s) return "";
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-function normaliseTitle(raw?: string): string | undefined {
-  if (!raw) return undefined;
-  const key = raw.trim().toUpperCase().replace(/\.$/, "");
-  return TITLE_MAP[key];
-}
-
-export function Step3Bike({ data, setData, back, onComplete }: {
+export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   data: WizardData;
   setData: (d: WizardData) => void;
   back: () => void;
+  onSwitchToFast?: () => void;
   onComplete?: () => void;
 }) {
-  usePageTimer("Step 3 Bike");
+  usePageTimer("Step 3");
   const embed = useEmbed();
   const dealer = useDealer();
 
@@ -129,14 +101,7 @@ export function Step3Bike({ data, setData, back, onComplete }: {
   const [submitted, setSubmitted] = useState<{ policyNumber?: string; salesRef?: string; manualFollowUp?: boolean } | null>(null);
   const [errors, setErrors] = useState<ParsedEdithResponse | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
-  const [spouseIdError, setSpouseIdError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
-  const [banks, setBanks] = useState<Bank[]>([]);
-  const [banksLoading, setBanksLoading] = useState(true);
-  const [idDoc, setIdDoc] = useState<UploadedFile[]>([]);
-  const [bankStatements, setBankStatements] = useState<UploadedFile[]>([]);
-  const [salarySlips, setSalarySlips] = useState<UploadedFile[]>([]);
-  const [proofOfResidence, setProofOfResidence] = useState<UploadedFile[]>([]);
   const [selectedBranchCode, setSelectedBranchCode] = useState<string>(
     dealer.branches?.[0]?.code ?? dealer.branchCode
   );
@@ -152,14 +117,11 @@ export function Step3Bike({ data, setData, back, onComplete }: {
 
   const isMarried = data.maritalStatus === "Married";
   const isRetired = data.employmentType === "Pensioner/Retired";
-  const isSpouseRsaId = (data.spouseIdType ?? "RSA ID") === "RSA ID";
 
   const fieldChecks: boolean[] = [
     !!data.dealership,
     !!data.vehicleMake,
     !!data.vehicleModel,
-    !!data.bankBranchCode,
-    !!data.accountType,
     !!data.title,
     !!data.name,
     !!data.surname,
@@ -185,13 +147,14 @@ export function Step3Bike({ data, setData, back, onComplete }: {
     isRetired || !!data.currentEmploymentStartDate,
     !!data.confirmGross,
     !!data.confirmNet,
+    !data.hasDeposit || !!data.confirmDeposit,
     data.dataAttestation && data.financialAccessConsent,
   ];
   const completedFields = fieldChecks.filter(Boolean).length;
   const totalFields = fieldChecks.length;
   const pct = Math.round((completedFields / totalFields) * 100);
 
-  useEffect(() => { trackStep3Viewed("bike"); }, []);
+  useEffect(() => { trackStep3Viewed("manual"); }, []);
 
   useEffect(() => {
     return () => {
@@ -223,14 +186,7 @@ export function Step3Bike({ data, setData, back, onComplete }: {
 
     workerApi.getApplicant(data.applicantId, embed.dealer)
       .then(async (res) => {
-        if (res.title) {
-          const mappedTitle = normaliseTitle(res.title);
-          if (mappedTitle) {
-            patch.title = mappedTitle;
-          } else {
-            console.warn("[Step3Bike] unrecognised title from Seriti, leaving blank:", res.title);
-          }
-        }
+        if (res.title) patch.title = capitalise(res.title);
         if (res.emailAddress) patch.email = res.emailAddress;
         if (res.maritalStatus) patch.maritalStatus = capitalise(res.maritalStatus);
         if (res.employerName) { patch.employmentType = "Employed"; patch.employerName = res.employerName; }
@@ -249,25 +205,13 @@ export function Step3Bike({ data, setData, back, onComplete }: {
               if (locations.length > 0) patch.postalLocation = locations[0];
             }
           } catch (e) {
-            console.warn("[Step3Bike] auto address resolve failed", e);
+            console.warn("[Step3] auto address resolve failed", e);
           }
         }
         setData({ ...data, ...patch });
       })
-      .catch((e) => console.warn("[Step3Bike] getApplicant failed", e));
+      .catch((e) => console.warn("[Step3] getApplicant failed", e));
   }, [dealer.name]);
-
-  useEffect(() => {
-    const workerUrl = import.meta.env.VITE_WORKER_URL as string | undefined;
-    if (!workerUrl) { setBanksLoading(false); return; }
-    fetch(`${workerUrl}/api/lookup/banks`, {
-      headers: { "X-Dealer-Key": embed.dealer ?? "" },
-    })
-      .then((r) => r.json())
-      .then((json) => setBanks(json.results || []))
-      .catch((e) => console.warn("[Step3Bike] bank lookup failed", e))
-      .finally(() => setBanksLoading(false));
-  }, [embed.dealer]);
 
   useEffect(() => {
     if (data.maritalStatus === "Married" && data.spouseFirstName) {
@@ -278,15 +222,6 @@ export function Step3Bike({ data, setData, back, onComplete }: {
       });
     }
   }, [data.spouseFirstName, data.spouseLastName]);
-
-  const onSelectBank = (bankId: string) => {
-    const bank = banks.find((b) => String(b.id) === bankId);
-    if (bank) {
-      set("bankName", bank.name);
-      set("bankBranchCode", bank.branch_code);
-      trackStep3FieldChanged("bank", bank.name);
-    }
-  };
 
   const errorByField = (() => {
     if (!errors) return {} as Record<string, { title: string; message: string; action: string }>;
@@ -300,8 +235,8 @@ export function Step3Bike({ data, setData, back, onComplete }: {
   })();
 
   const onSubmit = async () => {
-    if (!data.vehicleMake?.trim()) { toast.error("Bike make is required."); return; }
-    if (!data.vehicleModel?.trim()) { toast.error("Bike model is required."); return; }
+    if (!data.vehicleMake?.trim()) { toast.error("Vehicle make is required."); return; }
+    if (!data.vehicleModel?.trim()) { toast.error("Vehicle model is required."); return; }
     if (!data.title) { toast.error("Title is required."); return; }
     if (!data.name.trim()) { toast.error("First name is required."); return; }
     if (!data.surname.trim()) { toast.error("Last name is required."); return; }
@@ -319,12 +254,6 @@ export function Step3Bike({ data, setData, back, onComplete }: {
     if (isMarried && !data.marriageDate) { toast.error("Marriage date is required."); return; }
     if (isMarried && !data.spouseFirstName?.trim()) { toast.error("Spouse first name is required."); return; }
     if (isMarried && !data.spouseLastName?.trim()) { toast.error("Spouse last name is required."); return; }
-    if (isMarried && isSpouseRsaId && data.spouseIdNumber) {
-      const err = validateSAID(data.spouseIdNumber);
-      setSpouseIdError(err);
-      if (err) { toast.error("Spouse ID number is invalid."); return; }
-    }
-    if (!data.bankBranchCode || !data.accountType) { toast.error("Please select your bank and account type."); return; }
     if (!data.address1.trim()) { toast.error("Street address is required."); return; }
     if (!data.postalLocation) {
       setAddressError("Please select a suburb from the list.");
@@ -358,7 +287,7 @@ export function Step3Bike({ data, setData, back, onComplete }: {
     setErrors(null);
 
     try {
-      const payload = buildEdithPayload(data, selectedBranchCode);
+      const payload = buildEdithPayload(data, selectedBranchCode, { isBike: false });
       const res = await workerApi.createPolicy(payload, dealer.key !== "default" ? dealer.key : embed.dealer);
       const parsed = parseEdithErrors(res);
 
@@ -379,63 +308,14 @@ export function Step3Bike({ data, setData, back, onComplete }: {
         return;
       }
 
-      const policyNumber = res.policyNumber;
-
-      const documents = [
-        ...idDoc.map((f) => ({
-          category: data.idType === "Passport" ? "PASSPORT" : "ID DOCUMENT - CLIENT",
-          description: f.name,
-          base64: f.base64,
-          fileExtension: f.fileExtension,
-        })),
-        ...bankStatements.map((f) => ({
-          category: "BANK STATEMENT",
-          description: f.name,
-          base64: f.base64,
-          fileExtension: f.fileExtension,
-        })),
-        ...salarySlips.map((f) => ({
-          category: "SALARY SLIP",
-          description: f.name,
-          base64: f.base64,
-          fileExtension: f.fileExtension,
-        })),
-        ...proofOfResidence.map((f) => ({
-          category: "PROOF OF RESIDENCE",
-          description: f.name,
-          base64: f.base64,
-          fileExtension: f.fileExtension,
-        })),
-      ];
-
-      if (documents.length > 0) {
-        const docsRes = await workerApi.submitDocuments(
-          { policyNumber, salesRef: res.salesRef, documents },
-          dealer.key !== "default" ? dealer.key : embed.dealer
-        );
-        trackStep3SubmitResult(true, {
-          policyNumber,
-          salesRef: res.salesRef,
-          documentsFailed: !docsRes.success,
-        });
-        if (!docsRes.success) {
-          logEvent('warn', 'document_upload_failed', {
-            policyNumber,
-            salesRef: res.salesRef,
-            dealer: dealer.key,
-          }, dealer.key);
-          toast.warning("Application submitted, but documents could not be attached. Our team will follow up.");
-        } else {
-          toast.success("Application submitted");
-        }
-      } else {
-        trackStep3SubmitResult(true, { policyNumber, salesRef: res.salesRef });
-        toast.success("Application submitted");
-      }
-
       submittedRef.current = true;
-      setSubmitted({ policyNumber, salesRef: res.salesRef });
+      setSubmitted({ policyNumber: res.policyNumber, salesRef: res.salesRef });
       onComplete?.();
+      trackStep3SubmitResult(true, {
+        policyNumber: res.policyNumber,
+        salesRef: res.salesRef,
+      });
+      toast.success("Application submitted");
 
     } catch (err: any) {
       console.error(err);
@@ -477,6 +357,23 @@ export function Step3Bike({ data, setData, back, onComplete }: {
   return (
     <div className="space-y-6">
       <StepHeader step={3} total={3} title="Full application" subtitle="Complete the sections below to submit." onBack={back} />
+
+      {onSwitchToFast && (
+        <button
+          type="button"
+          onClick={() => {
+            trackStep3SwitchedToFast();
+            onSwitchToFast();
+          }}
+          className="w-full rounded-xl border border-border bg-muted/40 p-3 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/60"
+        >
+          Don't want to fill out the long form?{" "}
+          <span
+            className="font-semibold underline"
+            style={{ color: "var(--dealer-primary, var(--primary))" }}
+          >Try our fast application</span> — just upload your documents and we'll handle the rest.
+        </button>
+      )}
 
       <div className="sticky top-0 z-30 -mx-4 px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b border-border">
         <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
@@ -532,75 +429,28 @@ export function Step3Bike({ data, setData, back, onComplete }: {
         />
       )}
 
-      <Accordion type="multiple" defaultValue={["bike", "banking", "personal", "address"]} className="space-y-3">
-
-        <Section id="bike" title="Bike & dealership">
+      <Accordion type="multiple" defaultValue={["vehicle", "personal", "address"]} className="space-y-3">
+        <Section id="vehicle" title="Vehicle & dealership">
           <FieldRow label="Dealership">
             <TypingInput
               value={data.dealership ?? ""}
               onChange={(v) => set("dealership", v)}
-              phrases={["Cycleway", "Bike Addict", "Hattons Cycles", "Bells Cycling", "Silverton Cycles"]}
+              phrases={["Search dealership…", "e.g. Standard Bank Motors", "Start typing to search…"]}
             />
           </FieldRow>
           <Grid2>
-            <FieldRow label="Bike make *">
+            <FieldRow label={<><span>Vehicle make</span> <span className="text-destructive">*</span></>}>
               <TypingInput
                 value={data.vehicleMake ?? ""}
                 onChange={(v) => set("vehicleMake", v)}
-                phrases={["Trek", "Titan Racing", "BMC", "Momsen"]}
+                phrases={["e.g. Toyota", "e.g. Volkswagen", "e.g. Ford"]}
               />
             </FieldRow>
-            <FieldRow label="Bike model *">
+            <FieldRow label={<><span>Vehicle model</span> <span className="text-destructive">*</span></>}>
               <TypingInput
                 value={data.vehicleModel ?? ""}
                 onChange={(v) => set("vehicleModel", v)}
-                phrases={["Supercaliber", "Cypher 120", "Fourstroke", "AL529"]}
-              />
-            </FieldRow>
-          </Grid2>
-        </Section>
-
-        <Section id="banking" title="Banking details">
-          <p className="text-xs text-muted-foreground">Used to set up your monthly debit order.</p>
-          <FieldRow label="Bank *">
-            <Select
-              value={banks.find((b) => b.branch_code === data.bankBranchCode)?.id?.toString() ?? ""}
-              onValueChange={onSelectBank}
-              disabled={banksLoading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={banksLoading ? "Loading banks…" : "Select your bank…"} />
-              </SelectTrigger>
-              <SelectContent>
-                {banks.map((b) => (
-                  <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FieldRow>
-          <Grid2>
-            <FieldRow label="Account type *">
-              <Select
-                value={data.accountType}
-                onValueChange={(v) => {
-                  set("accountType", v);
-                  trackStep3FieldChanged("accountType", v);
-                }}
-              >
-                <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-                <SelectContent>
-                  {ACCOUNT_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FieldRow>
-            <FieldRow label="Account number">
-              <Input
-                value={data.bankAccountNumber ?? ""}
-                inputMode="numeric"
-                onChange={(e) => set("bankAccountNumber", e.target.value.replace(/\D/g, ""))}
-                placeholder="Optional"
+                phrases={["e.g. Corolla", "e.g. Polo", "e.g. Ranger"]}
               />
             </FieldRow>
           </Grid2>
@@ -690,30 +540,22 @@ export function Step3Bike({ data, setData, back, onComplete }: {
                 <FieldRow label="Spouse ID type">
                   <SelectInput
                     value={data.spouseIdType ?? "RSA ID"}
-                    onChange={(v) => {
-                      set("spouseIdType", v);
-                      setSpouseIdError(null);
-                    }}
+                    onChange={(v) => set("spouseIdType", v)}
                     options={["RSA ID", "Passport", "Other ID"]}
                   />
                 </FieldRow>
                 <FieldRow label="Spouse ID number">
                   <Input
                     value={data.spouseIdNumber ?? ""}
-                    inputMode={isSpouseRsaId ? "numeric" : "text"}
-                    maxLength={isSpouseRsaId ? 13 : 30}
+                    inputMode={(data.spouseIdType ?? "RSA ID") === "RSA ID" ? "numeric" : "text"}
+                    maxLength={(data.spouseIdType ?? "RSA ID") === "RSA ID" ? 13 : 30}
                     onChange={(e) => {
-                      const v = isSpouseRsaId
+                      const v = (data.spouseIdType ?? "RSA ID") === "RSA ID"
                         ? e.target.value.replace(/\D/g, "")
                         : e.target.value;
                       set("spouseIdNumber", v);
-                      if (isSpouseRsaId) setSpouseIdError(validateSAID(v));
                     }}
-                    onBlur={() => isSpouseRsaId && setSpouseIdError(validateSAID(data.spouseIdNumber ?? ""))}
                   />
-                  {spouseIdError && isSpouseRsaId && (
-                    <p className="mt-1 text-xs text-destructive">⚠ {spouseIdError}</p>
-                  )}
                 </FieldRow>
               </Grid2>
             </>
@@ -843,47 +685,6 @@ export function Step3Bike({ data, setData, back, onComplete }: {
               onChange={(v) => set("confirmDeposit", v)}
             />
           )}
-        </Section>
-
-        <Section id="documents" title="Supporting documents (optional)">
-          <p className="text-xs text-muted-foreground">Upload any of the following if you have them ready. You can also provide them later.</p>
-          <FileUpload
-            label={`Copy of ${data.idType === "Passport" ? "Passport" : "ID Document"}`}
-            files={idDoc}
-            onChange={(files) => {
-              setIdDoc(files);
-              trackStep3FieldChanged("idDoc", files.length);
-            }}
-          />
-          <FileUpload
-            label="3 Months Bank Statements"
-            hint="Upload your most recent 3 months of bank statements"
-            multiple
-            files={bankStatements}
-            onChange={(files) => {
-              setBankStatements(files);
-              trackStep3FieldChanged("bankStatements", files.length);
-            }}
-          />
-          <FileUpload
-            label="3 Months Salary Slips"
-            hint="Upload your most recent 3 months of payslips"
-            multiple
-            files={salarySlips}
-            onChange={(files) => {
-              setSalarySlips(files);
-              trackStep3FieldChanged("salarySlips", files.length);
-            }}
-          />
-          <FileUpload
-            label="Proof of Residence"
-            hint="Not older than 3 months (utility bill, bank statement, etc.)"
-            files={proofOfResidence}
-            onChange={(files) => {
-              setProofOfResidence(files);
-              trackStep3FieldChanged("proofOfResidence", files.length);
-            }}
-          />
         </Section>
 
         <Section id="consents" title="Consents">
