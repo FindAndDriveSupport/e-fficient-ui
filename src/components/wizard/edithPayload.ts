@@ -4,9 +4,35 @@ import type { WizardData } from "./types";
  * Maps WizardData → Edith CreatePolicy payload.
  * Shared between Step3 (Manual) and Step3Fast.
  */
-export function buildEdithPayload(data: WizardData) {
+// Minimum estimatedApprovalAmount (RSA ID applicants only) required before
+// it's trusted as the retail price. Below this, falls back to preQualTotal
+// instead — same as the Passport/Other ID path.
+const RETAIL_PRICE_THRESHOLD_BIKE = 15000;
+const RETAIL_PRICE_THRESHOLD_VEHICLE = 60000;
+
+// Retail price logic (confirmed by FindAndDrive):
+//   - Passport (or any non-RSA-ID type): use preQualTotal
+//   - RSA ID: use estimatedApprovalAmount, but ONLY if it exceeds the
+//     dealer-type threshold (R15k bike / R60k vehicle) — otherwise fall
+//     back to preQualTotal, same as the non-RSA-ID path.
+function calculateRetailPrice(data: WizardData, isBike: boolean): number | undefined {
+  const preQualTotal = Number(data.preQualTotal) || undefined;
+
+  if (data.idType !== "RSA ID") {
+    return preQualTotal;
+  }
+
+  const threshold = isBike ? RETAIL_PRICE_THRESHOLD_BIKE : RETAIL_PRICE_THRESHOLD_VEHICLE;
+  const estimatedApproval = Number(data.estimatedApprovalAmount) || 0;
+
+  return estimatedApproval > threshold ? estimatedApproval : preQualTotal;
+}
+
+export function buildEdithPayload(data: WizardData, selectedBranchCode?: string, opts: { isBike?: boolean } = {}) {
   const isMarried = data.maritalStatus === "Married";
+  const retailPrice = calculateRetailPrice(data, !!opts.isBike);
   return {
+    retailPrice,
     title: data.title?.toUpperCase(),
     firstName: data.name,
     lastName: data.surname,
