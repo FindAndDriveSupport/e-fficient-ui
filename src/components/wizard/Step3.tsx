@@ -287,7 +287,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
     setErrors(null);
 
     try {
-      const payload = buildEdithPayload(data, selectedBranchCode);
+      const payload = buildEdithPayload(data, selectedBranchCode, { isBike: false });
       const res = await workerApi.createPolicy(payload, dealer.key !== "default" ? dealer.key : embed.dealer);
       const parsed = parseEdithErrors(res);
 
