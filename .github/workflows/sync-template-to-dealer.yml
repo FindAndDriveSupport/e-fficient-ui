@@ -1,17 +1,78 @@
 name: Sync Template to Dealer
 
 on:
+  # Auto-sync to EVERY dealer repo whenever the template's main branch changes.
+  push:
+    branches: [main]
+
+  # Manual trigger — leave dealer_repo blank (or set to "all") to sync every
+  # dealer repo, or provide a specific repo name to sync just that one.
   workflow_dispatch:
     inputs:
       dealer_repo:
-        description: 'Dealer repo name to sync (e.g. e-fficient-ui-keitzman-finance)'
-        required: true
+        description: 'Dealer repo to sync (e.g. e-fficient-ui-keitzman-finance). Leave blank or "all" to sync every dealer repo.'
+        required: false
+        default: 'all'
+
+  # Unchanged — still supports syncing a single dealer on demand from
+  # elsewhere (e.g. right after onboarding a new dealer).
   repository_dispatch:
     types: [sync-to-dealer]
 
 jobs:
-  sync:
+  # ── Discover which dealer repo(s) to sync ──────────────────────────────────
+  discover-dealers:
     runs-on: ubuntu-latest
+    outputs:
+      repos: ${{ steps.discover.outputs.repos }}
+    steps:
+      - name: Determine target repo list
+        id: discover
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+
+          # Single-repo path: repository_dispatch always specifies one repo;
+          # workflow_dispatch specifies one only if dealer_repo is set and
+          # isn't "all".
+          SINGLE_REPO=""
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            SINGLE_REPO="${{ github.event.client_payload.dealer_repo }}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && \
+               [ -n "${{ github.event.inputs.dealer_repo }}" ] && \
+               [ "${{ github.event.inputs.dealer_repo }}" != "all" ]; then
+            SINGLE_REPO="${{ github.event.inputs.dealer_repo }}"
+          fi
+
+          if [ -n "$SINGLE_REPO" ]; then
+            echo "Syncing single dealer repo: $SINGLE_REPO"
+            echo "repos=[\"$SINGLE_REPO\"]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Otherwise (push to main, or workflow_dispatch with no/"all"
+          # dealer_repo): discover every dealer repo in the org by naming
+          # convention "e-fficient-ui-*", excluding the template repo itself.
+          echo "Discovering all dealer repos matching e-fficient-ui-*..."
+          REPOS=$(gh api "orgs/FindAndDriveSupport/repos" --paginate \
+            --jq '[.[] | select(.name | startswith("e-fficient-ui-")) | .name]')
+
+          COUNT=$(echo "$REPOS" | jq 'length')
+          echo "Found $COUNT dealer repo(s): $(echo "$REPOS" | jq -r 'join(", ")')"
+
+          echo "repos=$(echo "$REPOS" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+  # ── Sync template → each discovered dealer repo, in parallel ───────────────
+  sync:
+    needs: discover-dealers
+    runs-on: ubuntu-latest
+    strategy:
+      # Don't cancel remaining dealers if one fails — a bad sync to one
+      # dealer shouldn't block the rest from getting the update.
+      fail-fast: false
+      matrix:
+        dealer_repo: ${{ fromJson(needs.discover-dealers.outputs.repos) }}
 
     steps:
       - name: Checkout template repo (e-fficient-ui)
@@ -20,40 +81,53 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           path: template
 
-      - name: Determine target dealer repo
-        id: target
-        run: |
-          if [ -n "${{ github.event.client_payload.dealer_repo }}" ]; then
-            echo "repo=${{ github.event.client_payload.dealer_repo }}" >> $GITHUB_OUTPUT
-          else
-            echo "repo=${{ github.event.inputs.dealer_repo }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Checkout dealer repo
         uses: actions/checkout@v4
         with:
-          repository: FindAndDriveSupport/${{ steps.target.outputs.repo }}
+          repository: FindAndDriveSupport/${{ matrix.dealer_repo }}
           token: ${{ secrets.GH_PAT }}
           path: dealer
 
+      - name: Build exclude list
+        id: excludes
+        run: |
+          # Base excludes — apply to every dealer, always.
+          cat > excludes.txt <<'EOF'
+          .git/
+          node_modules/
+          .env
+          wrangler.toml
+          src/config/dealerConfig.ts
+          src/contexts/DealerContext.tsx
+          src/routes/index.tsx
+          .github/
+          EOF
+
+          # Dealer-specific excludes — optional. If this dealer's own repo
+          # has a .syncignore file (one path per line, same syntax as the
+          # base list above), append it so this sync also skips those paths
+          # for THIS dealer only. Used for one-off file customizations that
+          # a boolean flag in dealerConfig.ts can't express — see the base
+          # excludes for the general "shared code + flag" pattern, which
+          # should be preferred whenever it fits.
+          if [ -f "dealer/.syncignore" ]; then
+            echo "Found dealer/.syncignore — merging dealer-specific excludes:"
+            cat dealer/.syncignore
+            echo "" >> excludes.txt
+            cat dealer/.syncignore >> excludes.txt
+          else
+            echo "No dealer/.syncignore for ${{ matrix.dealer_repo }} — using base excludes only."
+          fi
+
       - name: Sync files from template to dealer
         run: |
-          rsync -av \
-            --exclude='.git/' \
-            --exclude='node_modules/' \
-            --exclude='.env' \
-            --exclude='wrangler.toml' \
-            --exclude='src/config/dealerConfig.ts' \
-            --exclude='src/contexts/DealerContext.tsx' \
-            --exclude='src/routes/index.tsx' \
-            --exclude='.github/' \
-            template/ dealer/
+          rsync -av --exclude-from=excludes.txt template/ dealer/
 
       - name: Check for changes
         id: changes
         run: |
           cd dealer
-          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+          git diff --quiet && echo "changed=false" >> "$GITHUB_OUTPUT" || echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Commit and push changes
         if: steps.changes.outputs.changed == 'true'
@@ -64,3 +138,13 @@ jobs:
           git add -A
           git commit -m "chore: sync latest changes from e-fficient-ui template"
           git push
+
+      - name: Report sync outcome
+        if: always()
+        run: |
+          if [ "${{ steps.changes.outputs.changed }}" = "true" ]; then
+            echo "✅ ${{ matrix.dealer_repo }} — synced and pushed."
+          else
+            echo "ℹ️  ${{ matrix.dealer_repo }} — no changes, nothing to push."
+          fi
+
