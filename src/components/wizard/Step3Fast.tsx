@@ -79,7 +79,7 @@ export function Step3Fast({ data, setData, back, onSwitchToManual, onComplete }:
     setSubmitting(true);
 
     try {
-      const payload = buildEdithPayload(data, selectedBranchCode);
+      const payload = buildEdithPayload(data, selectedBranchCode, { isBike: false });
       const res = await workerApi.createPolicy(payload, dealer.key !== "default" ? dealer.key : embed.dealer);
 
       const policyNumber = res.policyNumber;
