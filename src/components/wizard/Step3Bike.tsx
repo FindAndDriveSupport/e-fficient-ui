@@ -300,6 +300,8 @@ export function Step3Bike({ data, setData, back, onComplete }: {
   })();
 
   const onSubmit = async () => {
+    if (!data.vehicleMake?.trim()) { toast.error("Bike make is required."); return; }
+    if (!data.vehicleModel?.trim()) { toast.error("Bike model is required."); return; }
     if (!data.title) { toast.error("Title is required."); return; }
     if (!data.name.trim()) { toast.error("First name is required."); return; }
     if (!data.surname.trim()) { toast.error("Last name is required."); return; }
