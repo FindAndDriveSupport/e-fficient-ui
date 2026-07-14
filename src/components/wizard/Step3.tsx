@@ -81,31 +81,9 @@ const EDITH_MAP: Record<string, string> = {
   EFTDepositValue: "confirmDeposit",
 };
 
-// Maps Seriti's raw title values (including Afrikaans variants) to the values
-// this form actually offers in the Title <Select>. Anything unrecognised is
-// left blank rather than forced into an invalid value, since an invalid
-// title silently fails Edith submission downstream.
-const TITLE_MAP: Record<string, string> = {
-  MR: "Mr", MNR: "Mr",
-  MRS: "Mrs", MEV: "Mrs", MEVR: "Mrs",
-  MISS: "Miss", MEJ: "Miss", MEJUFFROU: "Miss",
-  MS: "Ms", ME: "Ms",
-  DR: "Dr",
-  PROF: "Prof",
-  ADV: "Adv",
-  HON: "Hon",
-  REV: "Rev",
-};
-
 function capitalise(s?: string) {
   if (!s) return "";
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-}
-
-function normaliseTitle(raw?: string): string | undefined {
-  if (!raw) return undefined;
-  const key = raw.trim().toUpperCase().replace(/\.$/, "");
-  return TITLE_MAP[key];
 }
 
 export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
@@ -123,7 +101,6 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   const [submitted, setSubmitted] = useState<{ policyNumber?: string; salesRef?: string; manualFollowUp?: boolean } | null>(null);
   const [errors, setErrors] = useState<ParsedEdithResponse | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
-  const [spouseIdError, setSpouseIdError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
   const [selectedBranchCode, setSelectedBranchCode] = useState<string>(
     dealer.branches?.[0]?.code ?? dealer.branchCode
@@ -140,7 +117,6 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
 
   const isMarried = data.maritalStatus === "Married";
   const isRetired = data.employmentType === "Pensioner/Retired";
-  const isSpouseRsaId = (data.spouseIdType ?? "RSA ID") === "RSA ID";
 
   const fieldChecks: boolean[] = [
     !!data.dealership,
@@ -210,14 +186,7 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
 
     workerApi.getApplicant(data.applicantId, embed.dealer)
       .then(async (res) => {
-        if (res.title) {
-          const mappedTitle = normaliseTitle(res.title);
-          if (mappedTitle) {
-            patch.title = mappedTitle;
-          } else {
-            console.warn("[Step3] unrecognised title from Seriti, leaving blank:", res.title);
-          }
-        }
+        if (res.title) patch.title = capitalise(res.title);
         if (res.emailAddress) patch.email = res.emailAddress;
         if (res.maritalStatus) patch.maritalStatus = capitalise(res.maritalStatus);
         if (res.employerName) { patch.employmentType = "Employed"; patch.employerName = res.employerName; }
@@ -266,6 +235,8 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
   })();
 
   const onSubmit = async () => {
+    if (!data.vehicleMake?.trim()) { toast.error("Vehicle make is required."); return; }
+    if (!data.vehicleModel?.trim()) { toast.error("Vehicle model is required."); return; }
     if (!data.title) { toast.error("Title is required."); return; }
     if (!data.name.trim()) { toast.error("First name is required."); return; }
     if (!data.surname.trim()) { toast.error("Last name is required."); return; }
@@ -283,11 +254,6 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
     if (isMarried && !data.marriageDate) { toast.error("Marriage date is required."); return; }
     if (isMarried && !data.spouseFirstName?.trim()) { toast.error("Spouse first name is required."); return; }
     if (isMarried && !data.spouseLastName?.trim()) { toast.error("Spouse last name is required."); return; }
-    if (isMarried && isSpouseRsaId && data.spouseIdNumber) {
-      const err = validateSAID(data.spouseIdNumber);
-      setSpouseIdError(err);
-      if (err) { toast.error("Spouse ID number is invalid."); return; }
-    }
     if (!data.address1.trim()) { toast.error("Street address is required."); return; }
     if (!data.postalLocation) {
       setAddressError("Please select a suburb from the list.");
@@ -473,14 +439,14 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
             />
           </FieldRow>
           <Grid2>
-            <FieldRow label="Vehicle make">
+            <FieldRow label={<><span>Vehicle make</span> <span className="text-destructive">*</span></>}>
               <TypingInput
                 value={data.vehicleMake ?? ""}
                 onChange={(v) => set("vehicleMake", v)}
                 phrases={["e.g. Toyota", "e.g. Volkswagen", "e.g. Ford"]}
               />
             </FieldRow>
-            <FieldRow label="Vehicle model">
+            <FieldRow label={<><span>Vehicle model</span> <span className="text-destructive">*</span></>}>
               <TypingInput
                 value={data.vehicleModel ?? ""}
                 onChange={(v) => set("vehicleModel", v)}
@@ -574,30 +540,22 @@ export function Step3({ data, setData, back, onSwitchToFast, onComplete }: {
                 <FieldRow label="Spouse ID type">
                   <SelectInput
                     value={data.spouseIdType ?? "RSA ID"}
-                    onChange={(v) => {
-                      set("spouseIdType", v);
-                      setSpouseIdError(null);
-                    }}
+                    onChange={(v) => set("spouseIdType", v)}
                     options={["RSA ID", "Passport", "Other ID"]}
                   />
                 </FieldRow>
                 <FieldRow label="Spouse ID number">
                   <Input
                     value={data.spouseIdNumber ?? ""}
-                    inputMode={isSpouseRsaId ? "numeric" : "text"}
-                    maxLength={isSpouseRsaId ? 13 : 30}
+                    inputMode={(data.spouseIdType ?? "RSA ID") === "RSA ID" ? "numeric" : "text"}
+                    maxLength={(data.spouseIdType ?? "RSA ID") === "RSA ID" ? 13 : 30}
                     onChange={(e) => {
-                      const v = isSpouseRsaId
+                      const v = (data.spouseIdType ?? "RSA ID") === "RSA ID"
                         ? e.target.value.replace(/\D/g, "")
                         : e.target.value;
                       set("spouseIdNumber", v);
-                      if (isSpouseRsaId) setSpouseIdError(validateSAID(v));
                     }}
-                    onBlur={() => isSpouseRsaId && setSpouseIdError(validateSAID(data.spouseIdNumber ?? ""))}
                   />
-                  {spouseIdError && isSpouseRsaId && (
-                    <p className="mt-1 text-xs text-destructive">⚠ {spouseIdError}</p>
-                  )}
                 </FieldRow>
               </Grid2>
             </>
