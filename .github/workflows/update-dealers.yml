@@ -36,9 +36,20 @@ jobs:
         run: |
           set -e
 
-          CONFIG_FILE=$(find backend -name "dealers.config.js" | head -1)
+          CONFIG_FILE=$(find backend -iname "dealers.config.js" | head -1)
           if [ -z "$CONFIG_FILE" ]; then
-            echo "❌ dealers.config.js not found in this repo."
+            echo "❌ dealers.config.js not found in this repo. Diagnostics:"
+            echo "── github.ref / event ──"
+            echo "ref: ${{ github.ref }}"
+            echo "event: ${{ github.event_name }}"
+            echo "── backend/ top-level contents ──"
+            ls -la backend
+            echo "── backend/workers/ contents (if it exists) ──"
+            ls -la backend/workers 2>&1 || echo "backend/workers does not exist"
+            echo "── backend/workers/dealers/ contents (if it exists) ──"
+            ls -la backend/workers/dealers 2>&1 || echo "backend/workers/dealers does not exist"
+            echo "── full recursive listing of backend/ (first 200 lines) ──"
+            find backend -type f | head -200
             exit 1
           fi
           echo "Found config at: $CONFIG_FILE"
