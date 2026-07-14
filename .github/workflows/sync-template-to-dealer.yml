@@ -23,27 +23,31 @@ jobs:
   # ── Discover which dealer repo(s) to sync ──────────────────────────────────
   # Discovery no longer calls the GitHub org API (orgs/{org}/repos), which
   # requires read:org scope + SSO/org-token approval that classic PATs need
-  # separate authorisation for — this was the source of the 404s. Instead,
-  # dealer keys are read directly from dealers.config.js in the backend repo
-  # (e-fficient-finance-widget) — the actual single source of truth for
-  # which dealers exist — rather than maintaining a second, separate list
-  # that could drift out of sync with it.
-  #
-  # ASSUMPTIONS (confirm/adjust if either is wrong):
-  #   1. Each dealer's UI repo is named `e-fficient-ui-<dealerKey>`, e.g.
-  #      the "keitzman-finance" entry in dealers.config.js maps to repo
-  #      e-fficient-ui-keitzman-finance.
-  #   2. The "findndrive" key is the fallback/default config served by the
-  #      base e-fficient-ui deployment itself, not a separately onboarded
-  #      dealer with its own repo — so it's excluded from the sync list.
+  # separate authorisation for — this was the source of the original 404s.
+  # It also no longer reads dealers.config.js from the backend repo — that
+  # added a second repo/token-access dependency (and its own naming
+  # confusion). Instead, the list of dealer repos is maintained explicitly
+  # in dealers.json at the template repo's root — one file, one repo,
+  # already-working access, no extra checkout needed.
   discover-dealers:
     runs-on: ubuntu-latest
     outputs:
       repos: ${{ steps.discover.outputs.repos }}
     steps:
-      - name: Determine target repo list (single-repo path)
-        id: single
+      - name: Checkout template repo (e-fficient-ui)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+          path: template
+
+      - name: Determine target repo list
+        id: discover
         run: |
+          set -e
+
+          # Single-repo path: repository_dispatch always specifies one repo;
+          # workflow_dispatch specifies one only if dealer_repo is set and
+          # isn't "all".
           SINGLE_REPO=""
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             SINGLE_REPO="${{ github.event.client_payload.dealer_repo }}"
@@ -52,59 +56,24 @@ jobs:
                [ "${{ github.event.inputs.dealer_repo }}" != "all" ]; then
             SINGLE_REPO="${{ github.event.inputs.dealer_repo }}"
           fi
-          echo "repo=$SINGLE_REPO" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout backend repo (e-fficient-finance-widget)
-        if: steps.single.outputs.repo == ''
-        uses: actions/checkout@v4
-        with:
-          repository: FindAndDriveSupport/e-fficient-finance-widget
-          token: ${{ secrets.GH_PAT }}
-          path: backend
-
-      - name: Discover dealer keys from dealers.config.js
-        id: discover
-        run: |
-          set -e
-
-          if [ -n "${{ steps.single.outputs.repo }}" ]; then
-            echo "Syncing single dealer repo: ${{ steps.single.outputs.repo }}"
-            echo "repos=[\"${{ steps.single.outputs.repo }}\"]" >> "$GITHUB_OUTPUT"
+          if [ -n "$SINGLE_REPO" ]; then
+            echo "Syncing single dealer repo: $SINGLE_REPO"
+            echo "repos=[\"$SINGLE_REPO\"]" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          CONFIG_FILE=$(find backend -name "dealers.config.js" | head -1)
-          if [ -z "$CONFIG_FILE" ]; then
-            echo "❌ dealers.config.js not found anywhere in e-fficient-finance-widget."
-            exit 1
-          fi
-          echo "Found config at: $CONFIG_FILE"
-
-          # Extract top-level dealer keys — lines shaped like:
-          #   '<dealer-key>': {
-          # (2-space indented, single-quoted key, colon, opening brace).
-          # Regex-based rather than executing the file, since it's an ESM
-          # module (export const DEALERS = {...}) and module resolution
-          # inside a bare `node -e` isn't guaranteed to work without knowing
-          # this repo's package.json "type" setting.
-          KEYS=$(grep -oP "^\s{2}'\K[a-z0-9-]+(?='\s*:\s*\{)" "$CONFIG_FILE")
-
-          if [ -z "$KEYS" ]; then
-            echo "❌ No dealer keys matched in $CONFIG_FILE — the file's format may have changed. Check the regex against its current structure."
+          # Otherwise (push to main, or workflow_dispatch with no/"all"
+          # dealer_repo): read the maintained list from dealers.json.
+          DEALERS_FILE="template/dealers.json"
+          if [ ! -f "$DEALERS_FILE" ]; then
+            echo "❌ $DEALERS_FILE not found in template repo root. Create it as a JSON array of dealer repo names, e.g. [\"e-fficient-ui-keitzman-finance\", \"e-fficient-ui-yonda-bike\"]."
             exit 1
           fi
 
-          REPOS="[]"
-          while IFS= read -r key; do
-            if [ "$key" = "findndrive" ]; then
-              echo "Skipping '$key' — fallback/default config, no separate repo."
-              continue
-            fi
-            REPOS=$(echo "$REPOS" | jq -c --arg repo "e-fficient-ui-$key" '. + [$repo]')
-          done <<< "$KEYS"
-
+          REPOS=$(jq -c . "$DEALERS_FILE")
           COUNT=$(echo "$REPOS" | jq 'length')
-          echo "Found $COUNT dealer repo(s): $(echo "$REPOS" | jq -r 'join(", ")')"
+          echo "Found $COUNT dealer repo(s) in dealers.json: $(echo "$REPOS" | jq -r 'join(", ")')"
 
           echo "repos=$REPOS" >> "$GITHUB_OUTPUT"
 
@@ -146,6 +115,7 @@ jobs:
           src/contexts/DealerContext.tsx
           src/routes/index.tsx
           .github/
+          dealers.json
           EOF
 
           # Dealer-specific excludes — optional. If this dealer's own repo
