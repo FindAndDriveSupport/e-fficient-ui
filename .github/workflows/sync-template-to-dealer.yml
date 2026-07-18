@@ -30,6 +30,18 @@ jobs:
   # in dealers.json at the template repo's root — one file, one repo,
   # already-working access, no extra checkout needed.
   discover-dealers:
+    # Guards against this workflow accidentally running in a DEALER repo —
+    # e.g. if a dealer repo was created via GitHub's "Use this template"
+    # button (or a manual copy), which brings the entire .github/workflows/
+    # folder along, including this file. If that happens, this job (and the
+    # sync job below) simply show as "skipped" instead of failing with
+    # "Input required and not supplied: token" — dealer repos don't have
+    # (and shouldn't have) their own GH_PAT secret, since only the template
+    # repo is meant to run this. This does NOT stop the file from being
+    # physically present in a dealer repo (that's a separate onboarding
+    # cleanup step, not something a workflow guard can fix) — it just makes
+    # its accidental presence harmless if triggered.
+    if: github.repository == 'FindAndDriveSupport/e-fficient-ui'
     runs-on: ubuntu-latest
     outputs:
       repos: ${{ steps.discover.outputs.repos }}
@@ -80,6 +92,7 @@ jobs:
   # ── Sync template → each discovered dealer repo, in parallel ───────────────
   sync:
     needs: discover-dealers
+    if: github.repository == 'FindAndDriveSupport/e-fficient-ui'
     runs-on: ubuntu-latest
     strategy:
       # Don't cancel remaining dealers if one fails — a bad sync to one
