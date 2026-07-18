@@ -170,7 +170,28 @@ export default {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
-    } catch (error) {
+    } catch (error: any) {
+      // h3 / TanStack Start's router commonly throws createError({ statusCode: 404 })
+      // for unmatched routes, rather than just returning a 404 Response. Previously
+      // this catch block collapsed EVERY thrown error to 500 regardless of what it
+      // actually was — which meant unmatched routes (e.g. scanner/bot probes hitting
+      // nonexistent paths like /RSC/<hash>.txt) surfaced as false "5xx" alerts
+      // instead of the harmless 404s they actually are. Pass through the real
+      // status code when the error carries one; only fall back to the branded
+      // 500 error page for genuine unhandled server errors.
+      const status =
+        typeof error?.statusCode === "number" ? error.statusCode :
+        typeof error?.status === "number" ? error.status :
+        500;
+
+      if (status >= 400 && status < 500) {
+        console.log(`[catch-all] ${status} for ${url.pathname}: ${error?.message ?? "no message"}`);
+        return new Response(status === 404 ? "Not Found" : (error?.message ?? "Client Error"), {
+          status,
+          headers: { "content-type": "text/plain; charset=utf-8" },
+        });
+      }
+
       console.error(error);
       return new Response(renderErrorPage(), {
         status: 500,
