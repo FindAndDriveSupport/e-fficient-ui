@@ -12,7 +12,10 @@
  *   position    {string}  optional — "bottom-right" (default) | "bottom-left"
  *   label       {string}  optional — CTA button label (default: "Check affordability")
  *   tagline     {string}  optional — subtitle under label
- *   primaryColor {string} optional — override button colour (hex)
+ *   primaryColor {string} optional — override button colour (hex). If omitted,
+ *                                    this dealer's actual theme color is
+ *                                    fetched at runtime from /api/widget-theme
+ *                                    (see server.ts) and applied once resolved.
  */
 (function () {
   'use strict';
@@ -40,7 +43,19 @@
   var position      = config.position || 'bottom-right';
   var label         = config.label    || 'Check affordability';
   var tagline       = config.tagline  || 'Find out what you can qualify for in 60 seconds. No credit impact.';
-  var primaryColor  = config.primaryColor || '#7C3AED';
+
+  // This static file is served byte-for-byte (no build-time templating), so
+  // it can't know a dealer's real theme color at build time the way
+  // server.ts's own inline widget script can (that one uses
+  // getDealerConfig() at build time). Instead: use the explicit override if
+  // given, otherwise start with this generic fallback and asynchronously
+  // fetch the dealer's real color from /api/widget-theme once the page
+  // loads — see fetchDealerTheme() below. This means there's a brief
+  // (usually sub-100ms, same edge network) flash of the fallback color
+  // before the real one applies, rather than an instant correct color —
+  // an unavoidable trade-off of this being a static asset.
+  var explicitColor = config.primaryColor;
+  var primaryColor  = explicitColor || '#7C3AED';
   var isLeft        = position === 'bottom-left';
 
   // ── Styles ────────────────────────────────────────────────────────────────
@@ -73,6 +88,7 @@
       'display:flex;align-items:center;justify-content:center;',
       'flex-shrink:0;',
       'background:' + primaryColor + ';',
+      'transition:background 0.2s;',
     '}',
     '#ew-fab-icon svg{width:20px;height:20px;fill:#fff;}',
     '#ew-fab-text{display:flex;flex-direction:column;gap:2px;}',
@@ -184,6 +200,25 @@
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
   document.body.appendChild(fab);
+
+  // ── Dealer theme color (runtime fetch) ──────────────────────────────────
+  // Only fetch if the embedder didn't explicitly force a color — an
+  // explicit primaryColor always wins and skips this entirely.
+  if (!explicitColor && WIDGET_URL) {
+    fetch(WIDGET_URL + '/api/widget-theme')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (data && data.primary) {
+          var iconEl = document.getElementById('ew-fab-icon');
+          if (iconEl) iconEl.style.background = data.primary;
+        }
+      })
+      .catch(function () {
+        // Network hiccup, endpoint not deployed yet on this dealer's
+        // Worker, etc. — silently keep the fallback color. The widget
+        // must never break just because this one styling fetch failed.
+      });
+  }
 
   // ── State ─────────────────────────────────────────────────────────────────
 
