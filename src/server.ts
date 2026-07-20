@@ -167,11 +167,33 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     const url = new URL(request.url);
 
-    // Serve widget.js dynamically
+    // NOTE: this branch is likely DEAD CODE — the actual widget.js served
+    // in production is a static file (in the assets directory, e.g.
+    // public/widget.js), and Cloudflare Workers with an `assets` binding
+    // serve matching static files BEFORE this fetch() handler ever runs.
+    // Left in place rather than removed outright since removing it needs
+    // confirming nothing else still depends on this path resolving here —
+    // but functionally, requests to /widget.js are very likely being
+    // answered by the static file below, not this branch.
     if (url.pathname === "/widget.js") {
       return new Response(WIDGET_JS, {
         headers: {
           "content-type": "application/javascript; charset=utf-8",
+          "cache-control": "public, max-age=300",
+          "access-control-allow-origin": "*",
+        },
+      });
+    }
+
+    // Lightweight endpoint the STATIC widget.js (public/widget.js) fetches
+    // at runtime to get this dealer's actual theme color — static assets
+    // can't use getDealerConfig()/import.meta.env the way this file can, so
+    // this is how that file learns the dealer's real primary color instead
+    // of always falling back to its hardcoded default.
+    if (url.pathname === "/api/widget-theme") {
+      return new Response(JSON.stringify({ primary: DEALER_THEME_PRIMARY }), {
+        headers: {
+          "content-type": "application/json; charset=utf-8",
           "cache-control": "public, max-age=300",
           "access-control-allow-origin": "*",
         },
