@@ -1,6 +1,7 @@
 import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { getDealerConfig } from "@/config/dealerConfig";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -36,6 +37,17 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 // The orchestrator sets this per dealer during onboarding.
 const DEALER_KEY = import.meta.env.VITE_DEFAULT_DEALER ?? "findndrive";
 
+// Widget button color now defaults to THIS dealer's actual theme color
+// (same source dealerConfig.ts/DealerContext.tsx use for the main wizard),
+// instead of a hardcoded purple. Previously the floating widget button
+// never matched a dealer's brand unless someone manually passed
+// `primaryColor` in the embed snippet on the dealer's own website — easy to
+// forget, and silently fell back to purple with no warning when omitted.
+// Still fully overridable per-embed via window.EfficientWidget.primaryColor
+// if a dealer explicitly wants the button a different color than the rest
+// of their site.
+const DEALER_THEME_PRIMARY = getDealerConfig(DEALER_KEY).theme?.primary ?? "#6C3FC5";
+
 const WIDGET_JS = `
 (function () {
   if (window.__EfficientWidgetLoaded) return;
@@ -55,7 +67,7 @@ const WIDGET_JS = `
 
   var label        = config.label        || "Check affordability";
   var tagline      = config.tagline      || "Find out what you qualify for in 60 seconds.";
-  var primaryColor = config.primaryColor || "#6C3FC5";
+  var primaryColor = config.primaryColor || "${DEALER_THEME_PRIMARY}";
 
   // ── Styles ────────────────────────────────────────────────────
   var style = document.createElement("style");
